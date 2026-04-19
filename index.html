@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Studio App</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* ── Dashboard-specific ── */
+    .activity-table thead th:last-child,
+    .activity-table tbody td:last-child { text-align: right; }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <!-- Main -->
+  <main class="main-area">
+    <div class="page">
+
+      <!-- Limit banner -->
+      <div class="limit-banner" id="limit-banner"></div>
+
+      <!-- Page header -->
+      <div class="page-header">
+        <h1>Overview</h1>
+        <div class="btn-group">
+          <a href="pages/quotes.html?new=1" class="btn" id="btn-new-quote">New quote</a>
+          <a href="pages/invoices.html?new=1" class="btn btn-primary" id="btn-new-invoice">New invoice</a>
+        </div>
+      </div>
+
+      <!-- Hero — outstanding amount -->
+      <div class="hero-card" id="hero-card">
+        <div>
+          <div class="label">Outstanding — money you are owed</div>
+          <div class="amount" id="outstanding-amount">₹0</div>
+          <div class="sub" id="outstanding-sub">across 0 unpaid invoices</div>
+        </div>
+        <div id="overdue-block" style="display:none">
+          <div class="label" style="text-align:right;margin-bottom:.4rem">Needs attention</div>
+          <div class="overdue-pill" id="overdue-amount">₹0 overdue</div>
+        </div>
+      </div>
+
+      <!-- Stat cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Revenue this month</div>
+          <div class="stat-value" id="stat-revenue">₹0</div>
+          <div class="stat-sub" id="stat-revenue-sub">from 0 paid invoices</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Quotes awaiting reply</div>
+          <div class="stat-value" id="stat-pending-quotes">0</div>
+          <div class="stat-sub" id="stat-pending-sub">sent, no response yet</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Quotes this month</div>
+          <div class="stat-value" id="stat-quotes-month">0</div>
+          <div class="stat-sub" id="stat-quotes-sub">0 converted to invoices</div>
+        </div>
+      </div>
+
+      <!-- Recent activity -->
+      <div class="card">
+        <div class="section-head">
+          <h2>Recent activity</h2>
+          <a href="pages/quotes.html" class="action-link">View all →</a>
+        </div>
+
+        <div id="activity-empty" class="empty-state" style="display:none">
+          <div class="empty-icon">📋</div>
+          <h3>No activity yet</h3>
+          <p>Create your first quotation to get started.</p>
+          <a href="pages/quotes.html?new=1" class="btn btn-primary">New quote</a>
+        </div>
+
+        <div class="table-wrap" id="activity-table-wrap">
+          <table class="activity-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Client</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="activity-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /.page -->
+  </main>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="js/core.js"></script>
+<script src="js/nav.js"></script>
+<script>
+  // ── Boot ────────────────────────────────────────────────
+  renderNav('dashboard', '');
+  initLimitBanner();
+  loadDashboard();
+
+  function loadDashboard() {
+    const quotes   = getQuotes();
+    const invoices = getInvoices();
+    const now      = new Date();
+    const thisMonth = now.getMonth();
+    const thisYear  = now.getFullYear();
+
+    // ── Outstanding & overdue ────────────────────────────
+    const unpaid   = invoices.filter(i => i.status !== 'paid');
+    const overdue  = unpaid.filter(i => isOverdue(i.dueDate));
+    const outstanding = unpaid.reduce((s, i) => s + (i.total || 0), 0);
+    const overdueAmt  = overdue.reduce((s, i)  => s + (i.total || 0), 0);
+
+    document.getElementById('outstanding-amount').textContent = fmtINR(outstanding);
+    document.getElementById('outstanding-sub').textContent =
+      `across ${unpaid.length} unpaid invoice${unpaid.length !== 1 ? 's' : ''}`;
+
+    if (overdueAmt > 0) {
+      document.getElementById('overdue-block').style.display = 'block';
+      document.getElementById('overdue-amount').textContent = fmtINR(overdueAmt) + ' overdue';
+    }
+
+    // ── Revenue this month ───────────────────────────────
+    const paidThisMonth = invoices.filter(i => {
+      if (i.status !== 'paid') return false;
+      const d = new Date(i.updatedAt || i.createdAt || 0);
+      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+    });
+    const revenue = paidThisMonth.reduce((s, i) => s + (i.total || 0), 0);
+    document.getElementById('stat-revenue').textContent = fmtINR(revenue);
+    document.getElementById('stat-revenue-sub').textContent =
+      `from ${paidThisMonth.length} paid invoice${paidThisMonth.length !== 1 ? 's' : ''}`;
+
+    // ── Quotes awaiting reply ────────────────────────────
+    const sentQuotes = quotes.filter(q => q.status === 'sent');
+    document.getElementById('stat-pending-quotes').textContent = sentQuotes.length;
+    document.getElementById('stat-pending-sub').textContent =
+      sentQuotes.length > 0 ? 'sent, awaiting client reply' : 'no quotes sent yet';
+
+    // ── Quotes this month ────────────────────────────────
+    const quotesThisMonth = quotes.filter(q => {
+      const d = new Date(q.createdAt || 0);
+      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+    });
+    const converted = quotesThisMonth.filter(q => q.convertedToInvoice);
+    document.getElementById('stat-quotes-month').textContent = quotesThisMonth.length;
+    document.getElementById('stat-quotes-sub').textContent =
+      `${converted.length} converted to invoice${converted.length !== 1 ? 's' : ''}`;
+
+    // ── Recent activity table ────────────────────────────
+    const allItems = [
+      ...quotes.map(q => ({ ...q, _type: 'Quote' })),
+      ...invoices.map(i => ({ ...i, _type: 'Invoice' })),
+    ].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 8);
+
+    if (allItems.length === 0) {
+      document.getElementById('activity-empty').style.display = 'block';
+      document.getElementById('activity-table-wrap').style.display = 'none';
+      return;
+    }
+
+    const tbody = document.getElementById('activity-body');
+    tbody.innerHTML = allItems.map(item => {
+      const isInvoice = item._type === 'Invoice';
+      const status    = item.status || 'draft';
+      const pill      = pillHTML(status);
+      const action    = actionHTML(item, isInvoice);
+      const editPage  = isInvoice ? 'pages/invoices.html' : 'pages/quotes.html';
+
+      return `<tr>
+        <td><a href="${editPage}?id=${item.id}" class="action-link">${item.ref || item.id}</a></td>
+        <td>${item.clientName || '—'}</td>
+        <td class="muted">${item._type}</td>
+        <td>${fmtINR(item.total || 0)}</td>
+        <td>${pill}</td>
+        <td>${action}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function pillHTML(status) {
+    const map = {
+      draft:    ['pill-draft',    'Draft'],
+      sent:     ['pill-sent',     'Sent'],
+      accepted: ['pill-accepted', 'Accepted'],
+      pending:  ['pill-pending',  'Pending'],
+      paid:     ['pill-paid',     'Paid'],
+      overdue:  ['pill-overdue',  'Overdue'],
+    };
+    const [cls, label] = map[status] || ['pill-draft', status];
+    return `<span class="pill ${cls}">${label}</span>`;
+  }
+
+  function actionHTML(item, isInvoice) {
+    if (isInvoice) {
+      if (item.status === 'paid') return `<a href="pages/invoices.html?id=${item.id}" class="action-link">View</a>`;
+      if (item.status === 'overdue') return `<a href="pages/invoices.html?id=${item.id}" class="action-link">Send reminder</a>`;
+      return `<a href="pages/invoices.html?id=${item.id}" class="action-link">Mark paid</a>`;
+    } else {
+      if (item.status === 'sent') return `<a href="pages/quotes.html?id=${item.id}" class="action-link">Convert to invoice</a>`;
+      if (item.status === 'draft') return `<a href="pages/quotes.html?id=${item.id}" class="action-link">Edit</a>`;
+      return `<a href="pages/quotes.html?id=${item.id}" class="action-link">View</a>`;
+    }
+  }
+</script>
+</body>
+</html>

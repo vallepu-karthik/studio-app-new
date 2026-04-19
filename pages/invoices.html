@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoices — Studio App</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* ── View toggle ── */
+    .view-list { display: block; }
+    .view-form { display: none; }
+    body.form-open .view-list { display: none; }
+    body.form-open .view-form { display: block; }
+
+    /* ── Filter tabs ── */
+    .filter-tabs { display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; }
+    .filter-tab  { padding: 5px 14px; font-size: 12px; font-weight: 500; border-radius: 20px; border: 1px solid #e5e5e5; background: #fff; color: #888; cursor: pointer; transition: all .15s; }
+    .filter-tab.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+    /* ── Two-col layout ── */
+    .form-cols { display: grid; grid-template-columns: 1fr 320px; gap: 1.25rem; align-items: start; }
+    .form-left { display: flex; flex-direction: column; gap: 1rem; }
+    .form-right { position: sticky; top: 1rem; }
+
+    /* ── Line items table ── */
+    .line-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .line-table th { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .04em; padding: 0 8px 8px 0; border-bottom: 1px solid #e5e5e5; }
+    .line-table td { padding: 6px 8px 6px 0; border-bottom: 1px solid #f5f5f4; vertical-align: middle; }
+    .line-table input { width: 100%; padding: 6px 8px; font-size: 13px; border: 1px solid #e5e5e5; border-radius: 6px; background: #fff; color: #1a1a1a; font-family: inherit; }
+    .line-table input:focus { outline: none; border-color: #1a1a1a; }
+    .col-desc { width: 40%; } .col-qty { width: 10%; } .col-rate { width: 20%; }
+    .col-amt  { width: 20%; color: #555; } .col-del { width: 10%; text-align: center; }
+    .del-btn  { background: none; border: none; color: #ccc; cursor: pointer; font-size: 18px; line-height: 1; padding: 0 4px; }
+    .del-btn:hover { color: #e53e3e; }
+
+    /* ── Totals ── */
+    .totals-block { border-top: 1px solid #e5e5e5; padding-top: .85rem; margin-top: .5rem; }
+    .tot-row { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; color: #555; }
+    .tot-row.grand { font-weight: 700; font-size: 15px; color: #1a1a1a; border-top: 1px solid #e5e5e5; margin-top: 5px; padding-top: 8px; }
+    .gst-row { display: flex; align-items: center; gap: 10px; margin: .75rem 0 .25rem; }
+    .gst-row label { font-size: 12px; color: #555; font-weight: 600; }
+    .gst-row select { width: auto; padding: 5px 8px; font-size: 12px; }
+
+    /* ── Milestones ── */
+    .milestone-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: .75rem; }
+    .milestone-table th { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .04em; padding: 0 8px 8px 0; border-bottom: 1px solid #e5e5e5; }
+    .milestone-table td { padding: 8px 8px 8px 0; border-bottom: 1px solid #f5f5f4; vertical-align: middle; }
+    .milestone-table input[type="date"],
+    .milestone-table input[type="text"] { width: 100%; padding: 5px 8px; font-size: 12px; border: 1px solid #e5e5e5; border-radius: 6px; background: #fff; color: #1a1a1a; font-family: inherit; }
+    .milestone-table input:focus { outline: none; border-color: #1a1a1a; }
+    .pct-wrap { display: flex; align-items: center; gap: 4px; }
+    .pct-wrap input { width: 52px; padding: 5px 6px; font-size: 12px; border: 1px solid #e5e5e5; border-radius: 6px; text-align: center; font-family: inherit; background: #fff; color: #1a1a1a; }
+    .pct-wrap input:focus { outline: none; border-color: #1a1a1a; }
+    .ms-status { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; cursor: pointer; border: none; transition: all .15s; }
+    .ms-upcoming  { background: #f5f5f4; color: #888; }
+    .ms-pending   { background: #fef9ee; color: #92400e; }
+    .ms-collected { background: #eaf3de; color: #1d6f42; }
+    .milestone-summary { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: .75rem; }
+    .ms-sum-card { background: #fafaf9; border-radius: 8px; padding: .75rem; text-align: center; border: 1px solid #e5e5e5; }
+    .ms-sum-card .ms-lbl { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: .04em; margin-bottom: .25rem; }
+    .ms-sum-card .ms-val { font-size: 16px; font-weight: 700; color: #1a1a1a; }
+    .ms-sum-card.collected .ms-val { color: #1d6f42; }
+    .ms-sum-card.balance .ms-val   { color: #92400e; }
+
+    /* ── Preview ── */
+    .preview-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 1.25rem; font-size: 12px; }
+    .prev-studio  { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+    .prev-meta    { font-size: 11px; color: #888; margin-bottom: .75rem; }
+    .prev-divider { border: none; border-top: 1px solid #e5e5e5; margin: .6rem 0; }
+    .prev-label   { font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+    .prev-client  { font-size: 13px; font-weight: 600; margin-bottom: .6rem; }
+    .prev-line    { display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0; }
+    .prev-line.head { color: #aaa; border-bottom: 1px solid #f0f0f0; padding-bottom: 4px; margin-bottom: 2px; }
+    .prev-total   { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; border-top: 1px solid #e5e5e5; padding-top: 6px; margin-top: 4px; }
+    .prev-subtot  { display: flex; justify-content: space-between; font-size: 11px; color: #888; padding: 2px 0; }
+    .preview-lbl  { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .04em; margin-bottom: .6rem; }
+
+    /* ── Misc ── */
+    .form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 1rem; }
+    .btn-wa { background: #25d366; color: #fff; border-color: #25d366; }
+    .btn-wa:hover { background: #1fb558; }
+    .from-quote-tag { font-size: 11px; background: #eff6ff; color: #1e40af; border-radius: 6px; padding: 2px 8px; margin-left: 8px; }
+
+    /* ── Autocomplete ── */
+    .autocomplete-wrap { position: relative; }
+    .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #d0d0d0; border-radius: 8px; z-index: 100; max-height: 180px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,.1); display: none; }
+    .autocomplete-item { padding: 9px 12px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f5f5f4; }
+    .autocomplete-item:last-child { border-bottom: none; }
+    .autocomplete-item:hover { background: #f5f5f4; }
+    .ac-sub { font-size: 11px; color: #aaa; }
+
+    @media(max-width:768px) {
+      .form-cols { grid-template-columns: 1fr; }
+      .form-right { position: static; }
+      .milestone-summary { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main-area">
+    <div class="page">
+      <div class="limit-banner" id="limit-banner"></div>
+
+      <!-- ══════════ LIST VIEW ══════════ -->
+      <div class="view-list">
+        <div class="page-header">
+          <h1>Invoices</h1>
+          <button class="btn btn-primary" onclick="openForm()">+ New invoice</button>
+        </div>
+
+        <div class="filter-tabs">
+          <button class="filter-tab active" onclick="setFilter(this,'all')">All</button>
+          <button class="filter-tab" onclick="setFilter(this,'pending')">Pending</button>
+          <button class="filter-tab" onclick="setFilter(this,'paid')">Paid</button>
+          <button class="filter-tab" onclick="setFilter(this,'overdue')">Overdue</button>
+        </div>
+
+        <div class="card">
+          <div id="list-empty" class="empty-state" style="display:none">
+            <div class="empty-icon">🧾</div>
+            <h3>No invoices yet</h3>
+            <p>Create an invoice directly or convert a sent quotation.</p>
+            <button class="btn btn-primary" onclick="openForm()">New invoice</button>
+          </div>
+          <div class="table-wrap" id="list-wrap">
+            <table>
+              <thead><tr>
+                <th>Ref</th><th>Client</th><th>Issued</th><th>Due</th>
+                <th>Amount</th><th>Collected</th><th>Status</th><th>Action</th>
+              </tr></thead>
+              <tbody id="inv-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ FORM VIEW ══════════ -->
+      <div class="view-form">
+        <div class="page-header">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <button class="btn btn-sm" onclick="closeForm()">← Back</button>
+            <h1 id="form-title">New invoice</h1>
+            <span class="pill pill-pending" id="form-ref-badge"></span>
+            <span class="from-quote-tag" id="from-quote-tag" style="display:none"></span>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-sm" onclick="saveInvoiceForm('pending')">Save</button>
+            <button class="btn btn-sm btn-success" onclick="markPaid()">Mark as paid</button>
+          </div>
+        </div>
+
+        <div class="form-cols">
+          <!-- LEFT -->
+          <div class="form-left">
+
+            <!-- Client -->
+            <div class="card">
+              <div style="font-size:13px;font-weight:600;margin-bottom:.85rem">Client details</div>
+              <div class="form-row cols-2" style="margin-bottom:.75rem">
+                <div class="form-group">
+                  <label>Client name</label>
+                  <div class="autocomplete-wrap">
+                    <input type="text" id="f-client-name" placeholder="Start typing..." autocomplete="off"
+                      oninput="onClientInput(this)" onblur="hideAC()">
+                    <div class="autocomplete-list" id="ac-list"></div>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Phone / email</label>
+                  <input type="text" id="f-client-contact" placeholder="98765 43210" oninput="updatePreview()">
+                </div>
+              </div>
+              <div class="form-row cols-3">
+                <div class="form-group">
+                  <label>Invoice date</label>
+                  <input type="date" id="f-inv-date" oninput="autoDueDate()">
+                </div>
+                <div class="form-group">
+                  <label>Due date <span style="font-weight:400;color:#aaa;font-size:10px">auto</span></label>
+                  <input type="date" id="f-due-date" oninput="updatePreview()">
+                </div>
+                <div class="form-group">
+                  <label>Event date</label>
+                  <input type="date" id="f-event-date" oninput="updatePreview()">
+                </div>
+              </div>
+              <div class="form-group" style="margin-top:.75rem">
+                <label>Venue <span style="font-weight:400;color:#aaa;font-size:10px">optional</span></label>
+                <input type="text" id="f-venue" placeholder="Taj Krishna, Hyderabad" oninput="updatePreview()">
+              </div>
+            </div>
+
+            <!-- Line items -->
+            <div class="card">
+              <div style="font-size:13px;font-weight:600;margin-bottom:.85rem">Line items</div>
+              <table class="line-table">
+                <thead><tr>
+                  <th class="col-desc">Description</th>
+                  <th class="col-qty">Qty</th>
+                  <th class="col-rate">Rate (₹)</th>
+                  <th class="col-amt">Amount</th>
+                  <th class="col-del"></th>
+                </tr></thead>
+                <tbody id="line-body"></tbody>
+              </table>
+              <button class="btn btn-sm" style="margin-top:.75rem" onclick="addLine()">+ Add item</button>
+
+              <div class="gst-row">
+                <label>GST</label>
+                <select id="f-gst" onchange="updateTotalsUI()">
+                  <option value="0">None (0%)</option>
+                  <option value="5">5%</option>
+                  <option value="12">12%</option>
+                  <option value="18" selected>18% (standard)</option>
+                  <option value="28">28%</option>
+                </select>
+                <span style="font-size:11px;color:#aaa">applied to subtotal</span>
+              </div>
+
+              <div class="totals-block">
+                <div class="tot-row"><span>Subtotal</span><span id="t-sub">₹0</span></div>
+                <div class="tot-row"><span id="t-gst-lbl">GST (18%)</span><span id="t-gst">₹0</span></div>
+                <div class="tot-row grand"><span>Total</span><span id="t-total">₹0</span></div>
+              </div>
+            </div>
+
+            <!-- Payment milestones -->
+            <div class="card">
+              <div style="font-size:13px;font-weight:600;margin-bottom:.25rem">Payment milestones</div>
+              <div style="font-size:12px;color:#888;margin-bottom:.85rem">Track advance, pre-event, and final payments separately.</div>
+
+              <table class="milestone-table">
+                <thead><tr>
+                  <th style="width:28%">Milestone</th>
+                  <th style="width:14%">%</th>
+                  <th style="width:18%">Amount</th>
+                  <th style="width:22%">Due date</th>
+                  <th style="width:18%">Status</th>
+                </tr></thead>
+                <tbody id="ms-body"></tbody>
+              </table>
+
+              <div class="milestone-summary">
+                <div class="ms-sum-card">
+                  <div class="ms-lbl">Invoice total</div>
+                  <div class="ms-val" id="ms-total">₹0</div>
+                </div>
+                <div class="ms-sum-card collected">
+                  <div class="ms-lbl">Collected</div>
+                  <div class="ms-val" id="ms-collected">₹0</div>
+                </div>
+                <div class="ms-sum-card balance">
+                  <div class="ms-lbl">Balance due</div>
+                  <div class="ms-val" id="ms-balance">₹0</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Notes -->
+            <div class="card">
+              <div class="form-group">
+                <label>Notes <span style="font-weight:400;color:#aaa;font-size:10px">optional</span></label>
+                <textarea id="f-notes" rows="3" placeholder="Bank details, payment instructions..." oninput="updatePreview()"></textarea>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn" onclick="saveInvoiceForm('pending')">Save</button>
+              <button class="btn" onclick="downloadPDF()">Download PDF</button>
+              <button class="btn btn-wa" onclick="shareWhatsApp()">Share on WhatsApp</button>
+              <button class="btn btn-success" onclick="markPaid()">Mark as paid</button>
+              <button class="btn btn-danger btn-sm" id="btn-del" onclick="deleteCurrentInvoice()" style="display:none">Delete</button>
+            </div>
+          </div>
+
+          <!-- RIGHT — preview -->
+          <div class="form-right">
+            <div class="preview-lbl">Live preview</div>
+            <div class="preview-card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem">
+                <div>
+                  <div class="prev-studio" id="pv-studio">Studio App</div>
+                  <div class="prev-meta"   id="pv-contact"></div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-size:12px;font-weight:600" id="pv-ref">#INV-001</div>
+                  <div style="font-size:11px;color:#aaa"      id="pv-date"></div>
+                </div>
+              </div>
+              <hr class="prev-divider">
+              <div class="prev-label">Bill to</div>
+              <div class="prev-client" id="pv-client">—</div>
+              <div id="pv-event" style="font-size:11px;color:#888;margin-bottom:.6rem;display:none"></div>
+              <div class="prev-line head"><span>Item</span><span>Amount</span></div>
+              <div id="pv-lines"></div>
+              <hr class="prev-divider">
+              <div class="prev-subtot"><span>Subtotal</span><span id="pv-sub">₹0</span></div>
+              <div class="prev-subtot"><span id="pv-gst-lbl">GST 18%</span><span id="pv-gst">₹0</span></div>
+              <div class="prev-total"><span>Total</span><span id="pv-total">₹0</span></div>
+              <hr class="prev-divider">
+              <div class="prev-subtot"><span>Due date</span><span id="pv-due"></span></div>
+              <div style="font-size:10px;color:#aaa;margin-top:.75rem" id="pv-notes"></div>
+              <div id="pv-gstin" style="font-size:10px;color:#aaa;margin-top:3px"></div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /view-form -->
+
+    </div>
+  </main>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/nav.js"></script>
+<script src="../js/pdf.js"></script>
+<script>
+'use strict';
+
+// ── State ────────────────────────────────────────────────
+let currentId = null;
+let lineItems = [];
+let milestones = [];
+let curFilter = 'all';
+
+// ── Default milestones ────────────────────────────────────
+function defaultMilestones(total) {
+  return [
+    { label:'Advance / booking', pct:30, amount:Math.round(total*0.30), dueDate:'', status:'upcoming' },
+    { label:'Before event',      pct:40, amount:Math.round(total*0.40), dueDate:'', status:'upcoming' },
+    { label:'After delivery',    pct:30, amount:Math.round(total*0.30), dueDate:'', status:'upcoming' },
+  ];
+}
+
+// ── Boot ─────────────────────────────────────────────────
+renderNav('invoices', '../');
+initLimitBanner();
+const params = new URLSearchParams(window.location.search);
+if (params.get('new') === '1') openForm();
+else if (params.get('id'))     openForm(params.get('id'));
+else                           renderList();
+
+// ─── LIST ───────────────────────────────────────────────
+function renderList() {
+  let all = getInvoices();
+  // Mark overdue dynamically
+  all = all.map(inv => {
+    if (inv.status === 'pending' && isOverdue(inv.dueDate)) {
+      return { ...inv, _overdue: true };
+    }
+    return inv;
+  });
+
+  let filtered = all;
+  if (curFilter === 'overdue')  filtered = all.filter(i => i._overdue);
+  else if (curFilter !== 'all') filtered = all.filter(i => i.status === curFilter && !i._overdue);
+
+  if (all.length === 0) {
+    document.getElementById('list-empty').style.display = 'block';
+    document.getElementById('list-wrap').style.display  = 'none';
+    return;
+  }
+  document.getElementById('list-empty').style.display = 'none';
+  document.getElementById('list-wrap').style.display  = 'block';
+
+  const tbody = document.getElementById('inv-tbody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:#aaa">No ${curFilter} invoices.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(inv => {
+    const badge  = inv._overdue ? 'overdue' : inv.status;
+    const collected = collectedAmount(inv);
+    const action = inv.status === 'paid'
+      ? `<a class="action-link" onclick="openForm('${inv.id}')">View</a>`
+      : `<a class="action-link" onclick="quickMarkPaid('${inv.id}')">Mark paid</a>
+         &nbsp;·&nbsp;
+         <a class="action-link" onclick="openForm('${inv.id}')">Edit</a>`;
+    return `<tr>
+      <td><a class="action-link" onclick="openForm('${inv.id}')">${inv.ref}</a></td>
+      <td>${inv.clientName || '—'}</td>
+      <td>${formatDate(inv.invoiceDate)}</td>
+      <td style="${inv._overdue?'color:#e53e3e':''}">${formatDate(inv.dueDate)}</td>
+      <td>${fmtINR(inv.total||0)}</td>
+      <td style="color:${collected>0?'#1d6f42':'#aaa'}">${collected>0?fmtINR(collected):'—'}</td>
+      <td><span class="pill pill-${badge}">${cap(badge)}</span></td>
+      <td>${action}</td>
+    </tr>`;
+  }).join('');
+}
+
+function collectedAmount(inv) {
+  if (!inv.milestones) return inv.status === 'paid' ? (inv.total||0) : 0;
+  return inv.milestones
+    .filter(m => m.status === 'collected')
+    .reduce((s,m) => s + (m.amount||0), 0);
+}
+
+function setFilter(el, f) {
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  curFilter = f;
+  renderList();
+}
+function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : ''; }
+
+// ─── QUICK MARK PAID (from list) ────────────────────────
+function quickMarkPaid(id) {
+  const inv = getInvoiceById(id);
+  if (!inv) return;
+  inv.status = 'paid';
+  inv.updatedAt = Date.now();
+  if (inv.milestones) inv.milestones.forEach(m => m.status = 'collected');
+  saveInvoice(inv);
+  showToast(`${inv.ref} marked as paid`);
+  renderList();
+}
+
+// ─── FORM OPEN / CLOSE ──────────────────────────────────
+function openForm(id = null) {
+  currentId = id;
+  document.body.classList.add('form-open');
+
+  if (id) {
+    const inv = getInvoiceById(id);
+    if (!inv) { closeForm(); return; }
+
+    document.getElementById('form-title').textContent      = 'Edit invoice';
+    document.getElementById('form-ref-badge').textContent  = inv.ref;
+    document.getElementById('f-client-name').value         = inv.clientName    || '';
+    document.getElementById('f-client-contact').value      = inv.clientContact || '';
+    document.getElementById('f-inv-date').value            = inv.invoiceDate   || '';
+    document.getElementById('f-due-date').value            = inv.dueDate       || '';
+    document.getElementById('f-event-date').value          = inv.eventDate     || '';
+    document.getElementById('f-venue').value               = inv.venue         || '';
+    document.getElementById('f-gst').value                 = inv.gstRate ?? 18;
+    document.getElementById('f-notes').value               = inv.notes         || '';
+    document.getElementById('btn-del').style.display       = 'inline-flex';
+
+    const fromTag = document.getElementById('from-quote-tag');
+    if (inv.fromQuoteRef) {
+      fromTag.textContent  = 'from ' + inv.fromQuoteRef;
+      fromTag.style.display = 'inline';
+    } else { fromTag.style.display = 'none'; }
+
+    lineItems  = JSON.parse(JSON.stringify(inv.lineItems  || [blankLine()]));
+    milestones = JSON.parse(JSON.stringify(inv.milestones || defaultMilestones(inv.total||0)));
+  } else {
+    const { ref } = nextInvoiceNumber();
+    const s = getSettings();
+    document.getElementById('form-title').textContent      = 'New invoice';
+    document.getElementById('form-ref-badge').textContent  = ref;
+    document.getElementById('f-client-name').value         = '';
+    document.getElementById('f-client-contact').value      = '';
+    document.getElementById('f-inv-date').value            = today();
+    document.getElementById('f-due-date').value            = addDays(today(), s.paymentDays || 14);
+    document.getElementById('f-event-date').value          = '';
+    document.getElementById('f-venue').value               = '';
+    document.getElementById('f-gst').value                 = '18';
+    document.getElementById('f-notes').value               = s.defaultNotes || '';
+    document.getElementById('btn-del').style.display       = 'none';
+    document.getElementById('from-quote-tag').style.display= 'none';
+    lineItems  = [blankLine()];
+    milestones = defaultMilestones(0);
+  }
+
+  renderLines();
+  renderMilestones();
+  updatePreview();
+}
+
+function closeForm() {
+  document.body.classList.remove('form-open');
+  currentId = null; lineItems = []; milestones = [];
+  history.replaceState(null, '', window.location.pathname);
+  renderList();
+}
+
+// ─── LINE ITEMS ─────────────────────────────────────────
+function blankLine() { return { desc:'', qty:1, rate:0 }; }
+
+function renderLines() {
+  document.getElementById('line-body').innerHTML = lineItems.map((item, i) => `
+    <tr>
+      <td class="col-desc">
+        <input value="${esc(item.desc)}" placeholder="Description"
+          oninput="lineItems[${i}].desc=this.value;updatePreview()">
+      </td>
+      <td class="col-qty">
+        <input type="number" value="${item.qty}" min="1" style="text-align:center"
+          oninput="lineItems[${i}].qty=+this.value||1;updateTotalsUI()">
+      </td>
+      <td class="col-rate">
+        <input type="number" value="${item.rate}" min="0" placeholder="0"
+          oninput="lineItems[${i}].rate=+this.value||0;updateTotalsUI()">
+      </td>
+      <td class="col-amt">${fmtINR(item.qty * item.rate)}</td>
+      <td class="col-del">
+        ${lineItems.length > 1 ? `<button class="del-btn" onclick="removeLine(${i})">×</button>` : ''}
+      </td>
+    </tr>`).join('');
+}
+
+function addLine()     { lineItems.push(blankLine()); renderLines(); updatePreview(); }
+function removeLine(i) { lineItems.splice(i,1); renderLines(); updateTotalsUI(); }
+
+// ─── TOTALS ─────────────────────────────────────────────
+function updateTotalsUI() {
+  const rate = +document.getElementById('f-gst').value;
+  const { subtotal, gst, total } = calcTotals(lineItems, rate);
+  document.getElementById('t-sub').textContent     = fmtINR(subtotal);
+  document.getElementById('t-gst-lbl').textContent = `GST (${rate}%)`;
+  document.getElementById('t-gst').textContent     = fmtINR(gst);
+  document.getElementById('t-total').textContent   = fmtINR(total);
+  document.querySelectorAll('#line-body tr').forEach((tr,i) => {
+    const c = tr.querySelector('.col-amt');
+    if (c) c.textContent = fmtINR(lineItems[i].qty * lineItems[i].rate);
+  });
+  recalcMilestones(total);
+  updatePreview();
+}
+
+// ─── MILESTONES ─────────────────────────────────────────
+const MS_CYCLE = ['upcoming','pending','collected'];
+
+function renderMilestones() {
+  document.getElementById('ms-body').innerHTML = milestones.map((m, i) => `
+    <tr>
+      <td><input type="text" value="${esc(m.label)}"
+        oninput="milestones[${i}].label=this.value"></td>
+      <td>
+        <div class="pct-wrap">
+          <input type="number" value="${m.pct}" min="0" max="100"
+            oninput="milestones[${i}].pct=+this.value;recalcMilestones(getCurrentTotal());renderMilestones()">
+          <span style="font-size:12px;color:#888">%</span>
+        </div>
+      </td>
+      <td style="font-size:13px;font-weight:500;color:#1a1a1a">${fmtINR(m.amount)}</td>
+      <td><input type="date" value="${m.dueDate||''}"
+        oninput="milestones[${i}].dueDate=this.value"></td>
+      <td>
+        <button class="ms-status ms-${m.status}" onclick="cycleMsStatus(${i})">
+          ${cap(m.status)}
+        </button>
+      </td>
+    </tr>`).join('');
+  updateMilestoneSummary();
+}
+
+function cycleMsStatus(i) {
+  const cur  = MS_CYCLE.indexOf(milestones[i].status);
+  milestones[i].status = MS_CYCLE[(cur + 1) % MS_CYCLE.length];
+  renderMilestones();
+}
+
+function recalcMilestones(total) {
+  milestones.forEach(m => { m.amount = Math.round((total || 0) * m.pct / 100); });
+  updateMilestoneSummary();
+  // Re-render amounts without full render to avoid losing focus
+  document.querySelectorAll('#ms-body tr').forEach((tr, i) => {
+    const amtCell = tr.cells[2];
+    if (amtCell) amtCell.textContent = fmtINR(milestones[i]?.amount || 0);
+  });
+  document.getElementById('ms-total').textContent = fmtINR(total || 0);
+}
+
+function getCurrentTotal() {
+  const rate = +document.getElementById('f-gst').value;
+  return calcTotals(lineItems, rate).total;
+}
+
+function updateMilestoneSummary() {
+  const total     = getCurrentTotal();
+  const collected = milestones.filter(m => m.status === 'collected').reduce((s,m) => s+(m.amount||0), 0);
+  const balance   = total - collected;
+  document.getElementById('ms-total').textContent     = fmtINR(total);
+  document.getElementById('ms-collected').textContent = fmtINR(collected);
+  document.getElementById('ms-balance').textContent   = fmtINR(Math.max(0, balance));
+}
+
+// ─── PREVIEW ────────────────────────────────────────────
+function updatePreview() {
+  const s    = getSettings();
+  const rate = +document.getElementById('f-gst').value;
+  const { subtotal, gst, total } = calcTotals(lineItems, rate);
+  const client   = document.getElementById('f-client-name').value    || '—';
+  const dueDate  = document.getElementById('f-due-date').value;
+  const invDate  = document.getElementById('f-inv-date').value;
+  const eventDate= document.getElementById('f-event-date').value;
+  const venue    = document.getElementById('f-venue').value;
+  const notes    = document.getElementById('f-notes').value;
+  const ref      = document.getElementById('form-ref-badge').textContent;
+
+  document.getElementById('pv-studio').textContent  = s.studioName || 'Studio App';
+  document.getElementById('pv-contact').textContent = [s.phone, s.email].filter(Boolean).join(' · ');
+  document.getElementById('pv-ref').textContent     = ref;
+  document.getElementById('pv-date').textContent    = formatDate(invDate);
+  document.getElementById('pv-client').textContent  = client;
+
+  const evEl = document.getElementById('pv-event');
+  if (eventDate) {
+    evEl.style.display = 'block';
+    evEl.textContent   = formatDate(eventDate) + (venue ? ' · ' + venue : '');
+  } else { evEl.style.display = 'none'; }
+
+  document.getElementById('pv-lines').innerHTML = lineItems.map(it =>
+    `<div class="prev-line">
+      <span style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.desc||'—'}</span>
+      <span>${fmtINR(it.qty*it.rate)}</span>
+    </div>`).join('');
+
+  document.getElementById('pv-sub').textContent     = fmtINR(subtotal);
+  document.getElementById('pv-gst-lbl').textContent = `GST ${rate}%`;
+  document.getElementById('pv-gst').textContent     = fmtINR(gst);
+  document.getElementById('pv-total').textContent   = fmtINR(total);
+  document.getElementById('pv-due').textContent     = dueDate ? formatDate(dueDate) : '—';
+  document.getElementById('pv-notes').textContent   = notes ? notes.slice(0,80)+(notes.length>80?'…':'') : '';
+  document.getElementById('pv-gstin').textContent   = s.gstin ? 'GSTIN: ' + s.gstin : '';
+}
+
+// ─── AUTO DUE DATE ───────────────────────────────────────
+function autoDueDate() {
+  const d = document.getElementById('f-inv-date').value;
+  const s = getSettings();
+  if (d) document.getElementById('f-due-date').value = addDays(d, s.paymentDays || 14);
+  updatePreview();
+}
+
+// ─── CLIENT AUTOCOMPLETE ────────────────────────────────
+function onClientInput(inp) {
+  updatePreview();
+  const val = inp.value.trim().toLowerCase();
+  if (!val) { hideAC(); return; }
+  const hits = getClients().filter(c => c.name.toLowerCase().includes(val)).slice(0, 5);
+  const list = document.getElementById('ac-list');
+  if (!hits.length) { hideAC(); return; }
+  list.innerHTML = hits.map(c =>
+    `<div class="autocomplete-item" onmousedown="pickClient('${esc(c.name)}','${esc(c.contact||'')}')">
+      <div>${c.name}</div>
+      ${c.contact ? `<div class="ac-sub">${c.contact}</div>` : ''}
+    </div>`).join('');
+  list.style.display = 'block';
+}
+function pickClient(name, contact) {
+  document.getElementById('f-client-name').value    = name;
+  document.getElementById('f-client-contact').value = contact;
+  hideAC(); updatePreview();
+}
+function hideAC() { setTimeout(() => { document.getElementById('ac-list').style.display = 'none'; }, 150); }
+
+// ─── BUILD INVOICE OBJECT ────────────────────────────────
+function buildInvoice(status) {
+  const rate = +document.getElementById('f-gst').value;
+  const { subtotal, gst, total } = calcTotals(lineItems, rate);
+  const clientName    = document.getElementById('f-client-name').value.trim();
+  const clientContact = document.getElementById('f-client-contact').value.trim();
+  if (clientName) upsertClient({ name: clientName, contact: clientContact });
+
+  const isNew = !currentId;
+  const { number, ref } = isNew
+    ? nextInvoiceNumber()
+    : { number: getInvoiceById(currentId)?.number, ref: document.getElementById('form-ref-badge').textContent };
+
+  // Sync milestone amounts to current total
+  const syncedMilestones = milestones.map(m => ({ ...m, amount: Math.round(total * m.pct / 100) }));
+
+  return {
+    id:            currentId || genId(),
+    number, ref, status,
+    clientName, clientContact,
+    invoiceDate:   document.getElementById('f-inv-date').value,
+    dueDate:       document.getElementById('f-due-date').value,
+    eventDate:     document.getElementById('f-event-date').value,
+    venue:         document.getElementById('f-venue').value.trim(),
+    lineItems:     JSON.parse(JSON.stringify(lineItems)),
+    gstRate:       rate, subtotal, gst, total,
+    milestones:    syncedMilestones,
+    notes:         document.getElementById('f-notes').value.trim(),
+    fromQuoteRef:  currentId ? (getInvoiceById(currentId)?.fromQuoteRef || null) : null,
+    createdAt:     currentId ? (getInvoiceById(currentId)?.createdAt || Date.now()) : Date.now(),
+    updatedAt:     Date.now(),
+  };
+}
+
+// ─── SAVE ACTIONS ───────────────────────────────────────
+function saveInvoiceForm(status) {
+  if (!currentId && !trackInvoice()) return;
+  const inv = buildInvoice(status);
+  currentId = inv.id;
+  saveInvoice(inv);
+  document.getElementById('btn-del').style.display = 'inline-flex';
+  showToast('Invoice saved');
+}
+
+function markPaid() {
+  if (!currentId && !trackInvoice()) return;
+  const inv = buildInvoice('paid');
+  currentId = inv.id;
+  // Mark all milestones collected
+  inv.milestones.forEach(m => m.status = 'collected');
+  saveInvoice(inv);
+  showToast('Invoice marked as paid');
+  closeForm();
+}
+
+function deleteCurrentInvoice() {
+  if (!currentId) return;
+  if (!confirm('Delete this invoice? This cannot be undone.')) return;
+  deleteInvoice(currentId);
+  showToast('Invoice deleted');
+  closeForm();
+}
+
+// ─── WHATSAPP SHARE ─────────────────────────────────────
+function downloadPDF() {
+  if (!currentId && !trackInvoice()) return;
+  const inv = buildInvoice(currentId ? (getInvoiceById(currentId)?.status || 'pending') : 'pending');
+  currentId = inv.id;
+  saveInvoice(inv);
+  document.getElementById('btn-del').style.display = 'inline-flex';
+  generateInvoicePDF(inv);
+}
+
+function shareWhatsApp() {
+  const s      = getSettings();
+  const client = document.getElementById('f-client-name').value.trim() || 'there';
+  const ref    = document.getElementById('form-ref-badge').textContent;
+  const rate   = +document.getElementById('f-gst').value;
+  const { total } = calcTotals(lineItems, rate);
+  const due    = document.getElementById('f-due-date').value;
+  const evDate = document.getElementById('f-event-date').value;
+
+  // Find next pending milestone
+  const nextMs = milestones.find(m => m.status !== 'collected');
+  const msLine = nextMs
+    ? `\n\nNext payment: ${fmtINR(nextMs.amount)} (${nextMs.label})${nextMs.dueDate ? ' due ' + formatDate(nextMs.dueDate) : ''}.`
+    : '';
+
+  const msg =
+    `Hi ${client}, here is your invoice ${ref} from ${s.studioName || 'Studio App'} for ${fmtINR(total)}` +
+    (evDate ? ` (event: ${formatDate(evDate)})` : '') + `.` +
+    msLine +
+    `\n\nPayment due by ${formatDate(due)}.` +
+    `\n\nThank you!`;
+
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+</script>
+</body>
+</html>

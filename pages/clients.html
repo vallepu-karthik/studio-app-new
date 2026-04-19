@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clients — Studio App</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .view-list   { display: block; }
+    .view-detail { display: none; }
+    body.detail-open .view-list   { display: none; }
+    body.detail-open .view-detail { display: block; }
+
+    .search-wrap { position: relative; margin-bottom: 1rem; }
+    .search-wrap input { padding-left: 36px; }
+    .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: #aaa; font-size: 14px; pointer-events: none; }
+
+    .client-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+    .client-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 1rem 1.1rem; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+    .client-card:hover { border-color: #bbb; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+    .client-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #fff; margin-bottom: .65rem; }
+    .client-name    { font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 2px; }
+    .client-contact { font-size: 12px; color: #888; margin-bottom: .6rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .client-stats   { display: flex; gap: 14px; }
+    .client-stat    { font-size: 11px; color: #888; }
+    .client-stat strong { display: block; font-size: 13px; font-weight: 600; color: #1a1a1a; }
+
+    .edit-form { display: none; background: #fafaf9; border: 1px solid #e5e5e5; border-radius: 12px; padding: 1.1rem; margin-bottom: 1rem; }
+    .edit-form.open { display: block; }
+
+    .detail-header { display: flex; align-items: center; gap: 14px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+    .detail-avatar { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: #fff; flex-shrink: 0; }
+    .detail-name    { font-size: 20px; font-weight: 600; color: #1a1a1a; }
+    .detail-contact { font-size: 13px; color: #888; margin-top: 2px; }
+    .detail-actions { margin-left: auto; display: flex; gap: 8px; }
+
+    .summary-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 1.25rem; }
+    .sum-card { background: #fafaf9; border: 1px solid #e5e5e5; border-radius: 10px; padding: .85rem 1rem; }
+    .sum-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .04em; margin-bottom: .25rem; }
+    .sum-value { font-size: 20px; font-weight: 700; color: #1a1a1a; }
+
+    .history-tabs { display: flex; gap: 0; border-bottom: 1px solid #e5e5e5; margin-bottom: 1rem; }
+    .history-tab  { padding: 8px 18px; font-size: 13px; font-weight: 500; color: #888; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .15s; }
+    .history-tab.active { color: #1a1a1a; border-bottom-color: #1a1a1a; }
+
+    .av-0{background:#378ADD} .av-1{background:#1D9E75} .av-2{background:#D85A30}
+    .av-3{background:#7F77DD} .av-4{background:#BA7517} .av-5{background:#D4537E}
+    .av-6{background:#639922} .av-7{background:#888780}
+
+    @media(max-width:640px){
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+      .client-grid  { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main-area">
+    <div class="page">
+      <div class="limit-banner" id="limit-banner"></div>
+
+      <!-- LIST VIEW -->
+      <div class="view-list">
+        <div class="page-header">
+          <h1>Clients</h1>
+          <button class="btn btn-primary" onclick="openNewClientForm()">+ New client</button>
+        </div>
+
+        <!-- Quick add/edit form -->
+        <div class="edit-form" id="quick-form">
+          <div style="font-size:13px;font-weight:600;margin-bottom:.85rem" id="qf-title">New client</div>
+          <div class="form-row cols-2" style="margin-bottom:.75rem">
+            <div class="form-group">
+              <label>Full name</label>
+              <input type="text" id="qf-name" placeholder="Meera Krishnan">
+            </div>
+            <div class="form-group">
+              <label>Phone / email</label>
+              <input type="text" id="qf-contact" placeholder="98765 43210">
+            </div>
+          </div>
+          <div class="form-row cols-2" style="margin-bottom:.85rem">
+            <div class="form-group">
+              <label>Instagram <span style="font-weight:400;color:#aaa;font-size:10px">optional</span></label>
+              <input type="text" id="qf-instagram" placeholder="@username">
+            </div>
+            <div class="form-group">
+              <label>Notes <span style="font-weight:400;color:#aaa;font-size:10px">optional</span></label>
+              <input type="text" id="qf-notes" placeholder="Wedding couple, referred by Ravi">
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary btn-sm" onclick="saveQuickClient()">Save client</button>
+            <button class="btn btn-sm" onclick="closeQuickForm()">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Search -->
+        <div class="search-wrap">
+          <span class="search-icon">&#128269;</span>
+          <input type="text" id="search-input" placeholder="Search by name or contact..." oninput="renderGrid(this.value)">
+        </div>
+
+        <!-- Empty state -->
+        <div id="clients-empty" class="empty-state" style="display:none">
+          <div class="empty-icon">&#128101;</div>
+          <h3>No clients yet</h3>
+          <p>Clients are saved automatically when you create a quote or invoice. You can also add one manually.</p>
+          <button class="btn btn-primary" onclick="openNewClientForm()">Add client</button>
+        </div>
+
+        <div class="client-grid" id="client-grid"></div>
+      </div>
+
+      <!-- DETAIL VIEW -->
+      <div class="view-detail">
+        <div class="page-header" style="margin-bottom:1rem">
+          <button class="btn btn-sm" onclick="closeDetail()">&#8592; Back</button>
+        </div>
+
+        <div class="detail-header">
+          <div class="detail-avatar" id="det-avatar"></div>
+          <div>
+            <div class="detail-name"    id="det-name"></div>
+            <div class="detail-contact" id="det-contact"></div>
+          </div>
+          <div class="detail-actions">
+            <button class="btn btn-sm" onclick="toggleDetailEdit()">Edit</button>
+            <button class="btn btn-sm btn-primary" onclick="newQuoteForClient()">New quote</button>
+          </div>
+        </div>
+
+        <!-- Inline edit in detail -->
+        <div class="edit-form" id="det-edit-form">
+          <div style="font-size:13px;font-weight:600;margin-bottom:.85rem">Edit client</div>
+          <div class="form-row cols-2" style="margin-bottom:.75rem">
+            <div class="form-group"><label>Full name</label><input type="text" id="det-f-name"></div>
+            <div class="form-group"><label>Phone / email</label><input type="text" id="det-f-contact"></div>
+          </div>
+          <div class="form-row cols-2" style="margin-bottom:.85rem">
+            <div class="form-group"><label>Instagram</label><input type="text" id="det-f-instagram"></div>
+            <div class="form-group"><label>Notes</label><input type="text" id="det-f-notes"></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary btn-sm" onclick="saveDetailEdit()">Save changes</button>
+            <button class="btn btn-sm" onclick="toggleDetailEdit()">Cancel</button>
+            <button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="deleteCurrentClient()">Delete client</button>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="summary-grid">
+          <div class="sum-card"><div class="sum-label">Total quotes</div><div class="sum-value" id="det-q-count">0</div></div>
+          <div class="sum-card"><div class="sum-label">Total invoices</div><div class="sum-value" id="det-i-count">0</div></div>
+          <div class="sum-card"><div class="sum-label">Total billed</div><div class="sum-value" id="det-billed">&#8377;0</div></div>
+          <div class="sum-card"><div class="sum-label">Outstanding</div><div class="sum-value" id="det-outstanding" style="color:#92400e">&#8377;0</div></div>
+        </div>
+
+        <!-- History -->
+        <div class="card">
+          <div class="history-tabs">
+            <div class="history-tab active" onclick="showTab(this,'hist-quotes')">Quotations</div>
+            <div class="history-tab"        onclick="showTab(this,'hist-invoices')">Invoices</div>
+          </div>
+
+          <div id="hist-quotes">
+            <div id="hq-empty" class="empty-state" style="display:none;padding:1.5rem 1rem">
+              <div class="empty-icon">&#128196;</div>
+              <h3>No quotes yet</h3>
+              <p>Create a quote for this client to see it here.</p>
+            </div>
+            <div class="table-wrap" id="hq-wrap">
+              <table>
+                <thead><tr><th>Ref</th><th>Date</th><th>Event</th><th>Amount</th><th>Status</th><th></th></tr></thead>
+                <tbody id="hq-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="hist-invoices" style="display:none">
+            <div id="hi-empty" class="empty-state" style="display:none;padding:1.5rem 1rem">
+              <div class="empty-icon">&#129534;</div>
+              <h3>No invoices yet</h3>
+              <p>Convert a quote or create an invoice for this client.</p>
+            </div>
+            <div class="table-wrap" id="hi-wrap">
+              <table>
+                <thead><tr><th>Ref</th><th>Date</th><th>Due</th><th>Amount</th><th>Collected</th><th>Status</th><th></th></tr></thead>
+                <tbody id="hi-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+<div id="toast"></div>
+
+<script src="../js/core.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+'use strict';
+
+var currentClientId = null;
+var editingClientId = null;
+
+// Boot
+renderNav('clients', '../');
+initLimitBanner();
+renderGrid();
+
+// ── Avatar helpers ───────────────────────────────────────
+function avatarClass(name) {
+  var hash = 0;
+  for (var i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return 'av-' + (Math.abs(hash) % 8);
+}
+function initials(name) {
+  return name.split(' ').map(function(w){ return w[0] || ''; }).join('').slice(0,2).toUpperCase();
+}
+function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : ''; }
+
+// ── CLIENT GRID ──────────────────────────────────────────
+function renderGrid(search) {
+  search = (search || '').toLowerCase().trim();
+  var all = getClients();
+  var filtered = search
+    ? all.filter(function(c){ return c.name.toLowerCase().includes(search) || (c.contact||'').toLowerCase().includes(search); })
+    : all;
+
+  var emptyEl = document.getElementById('clients-empty');
+  var gridEl  = document.getElementById('client-grid');
+
+  if (all.length === 0) {
+    emptyEl.style.display = 'block';
+    gridEl.style.display  = 'none';
+    return;
+  }
+  emptyEl.style.display = 'none';
+  gridEl.style.display  = 'grid';
+
+  var quotes   = getQuotes();
+  var invoices = getInvoices();
+
+  if (filtered.length === 0) {
+    gridEl.innerHTML = '<div style="color:#aaa;font-size:13px;padding:.5rem">No clients match "' + search + '".</div>';
+    return;
+  }
+
+  gridEl.innerHTML = filtered.map(function(c) {
+    var cq     = quotes.filter(function(q){ return q.clientName === c.name; });
+    var ci     = invoices.filter(function(i){ return i.clientName === c.name; });
+    var billed = ci.reduce(function(s,i){ return s + (i.total||0); }, 0);
+    return '<div class="client-card" onclick="openDetail(\'' + c.id + '\')">' +
+      '<div class="client-avatar ' + avatarClass(c.name) + '">' + initials(c.name) + '</div>' +
+      '<div class="client-name">' + c.name + '</div>' +
+      '<div class="client-contact">' + (c.contact || c.instagram || '—') + '</div>' +
+      '<div class="client-stats">' +
+        '<div class="client-stat"><strong>' + cq.length + '</strong>quotes</div>' +
+        '<div class="client-stat"><strong>' + ci.length + '</strong>invoices</div>' +
+        '<div class="client-stat"><strong>' + fmtINR(billed) + '</strong>billed</div>' +
+      '</div></div>';
+  }).join('');
+}
+
+// ── QUICK FORM ───────────────────────────────────────────
+function openNewClientForm() {
+  editingClientId = null;
+  document.getElementById('qf-title').textContent = 'New client';
+  document.getElementById('qf-name').value      = '';
+  document.getElementById('qf-contact').value   = '';
+  document.getElementById('qf-instagram').value = '';
+  document.getElementById('qf-notes').value     = '';
+  document.getElementById('quick-form').classList.add('open');
+  document.getElementById('qf-name').focus();
+}
+function closeQuickForm() {
+  document.getElementById('quick-form').classList.remove('open');
+  editingClientId = null;
+}
+function saveQuickClient() {
+  var name = document.getElementById('qf-name').value.trim();
+  if (!name) { showToast('Client name is required'); return; }
+  var data = {
+    name:      name,
+    contact:   document.getElementById('qf-contact').value.trim(),
+    instagram: document.getElementById('qf-instagram').value.trim(),
+    notes:     document.getElementById('qf-notes').value.trim(),
+  };
+  if (editingClientId) {
+    var clients = getClients();
+    var idx = clients.findIndex(function(c){ return c.id === editingClientId; });
+    if (idx >= 0) { clients[idx] = Object.assign({}, clients[idx], data); saveClients(clients); }
+  } else {
+    upsertClient(data);
+  }
+  closeQuickForm();
+  renderGrid(document.getElementById('search-input').value);
+  showToast(editingClientId ? 'Client updated' : 'Client saved');
+}
+
+// ── DETAIL VIEW ──────────────────────────────────────────
+function openDetail(clientId) {
+  var client = getClients().find(function(c){ return c.id === clientId; });
+  if (!client) return;
+  currentClientId = clientId;
+  document.body.classList.add('detail-open');
+
+  var av = document.getElementById('det-avatar');
+  av.className   = 'detail-avatar ' + avatarClass(client.name);
+  av.textContent = initials(client.name);
+  document.getElementById('det-name').textContent    = client.name;
+  document.getElementById('det-contact').textContent =
+    [client.contact, client.instagram, client.notes].filter(Boolean).join(' · ') || '—';
+
+  document.getElementById('det-edit-form').classList.remove('open');
+
+  var quotes   = getQuotes().filter(function(q){ return q.clientName === client.name; });
+  var invoices = getInvoices().filter(function(i){ return i.clientName === client.name; });
+  var billed   = invoices.reduce(function(s,i){ return s+(i.total||0); }, 0);
+  var outstanding = invoices.filter(function(i){ return i.status!=='paid'; })
+    .reduce(function(s,i){ return s+(i.total||0); }, 0);
+
+  document.getElementById('det-q-count').textContent     = quotes.length;
+  document.getElementById('det-i-count').textContent     = invoices.length;
+  document.getElementById('det-billed').textContent      = fmtINR(billed);
+  document.getElementById('det-outstanding').textContent = fmtINR(outstanding);
+
+  renderHistQuotes(client.name);
+  renderHistInvoices(client.name);
+
+  // Reset to quotes tab
+  document.querySelectorAll('.history-tab').forEach(function(t,i){ t.classList.toggle('active', i===0); });
+  document.getElementById('hist-quotes').style.display   = 'block';
+  document.getElementById('hist-invoices').style.display = 'none';
+}
+
+function closeDetail() {
+  document.body.classList.remove('detail-open');
+  currentClientId = null;
+  renderGrid(document.getElementById('search-input').value);
+}
+
+function newQuoteForClient() {
+  // Store client name so quotes page can pre-fill it
+  var client = getClients().find(function(c){ return c.id === currentClientId; });
+  if (client) sessionStorage.setItem('prefill_client', JSON.stringify({ name: client.name, contact: client.contact || '' }));
+  window.location.href = 'quotes.html?new=1';
+}
+
+// ── HISTORY TABLES ────────────────────────────────────────
+function renderHistQuotes(clientName) {
+  var quotes = getQuotes().filter(function(q){ return q.clientName === clientName; });
+  var empty  = document.getElementById('hq-empty');
+  var wrap   = document.getElementById('hq-wrap');
+  if (quotes.length === 0) { empty.style.display='block'; wrap.style.display='none'; return; }
+  empty.style.display='none'; wrap.style.display='block';
+  document.getElementById('hq-body').innerHTML = quotes.map(function(q) {
+    var badge = (q.status==='sent' && isOverdue(q.validUntil)) ? 'overdue' : q.status;
+    return '<tr>' +
+      '<td><a class="action-link" href="quotes.html?id=' + q.id + '">' + q.ref + '</a></td>' +
+      '<td class="muted">' + formatDate(q.quoteDate) + '</td>' +
+      '<td>' + (q.eventDate ? formatDate(q.eventDate) : '<span style="color:#ccc">—</span>') + '</td>' +
+      '<td>' + fmtINR(q.total||0) + '</td>' +
+      '<td><span class="pill pill-' + badge + '">' + cap(badge) + '</span></td>' +
+      '<td><a class="action-link" href="quotes.html?id=' + q.id + '">Open</a></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function renderHistInvoices(clientName) {
+  var invoices = getInvoices().filter(function(i){ return i.clientName === clientName; });
+  var empty    = document.getElementById('hi-empty');
+  var wrap     = document.getElementById('hi-wrap');
+  if (invoices.length === 0) { empty.style.display='block'; wrap.style.display='none'; return; }
+  empty.style.display='none'; wrap.style.display='block';
+  document.getElementById('hi-body').innerHTML = invoices.map(function(inv) {
+    var overdue = inv.status==='pending' && isOverdue(inv.dueDate);
+    var badge   = overdue ? 'overdue' : inv.status;
+    var collected = (inv.milestones||[]).filter(function(m){ return m.status==='collected'; })
+      .reduce(function(s,m){ return s+(m.amount||0); }, 0);
+    return '<tr>' +
+      '<td><a class="action-link" href="invoices.html?id=' + inv.id + '">' + inv.ref + '</a></td>' +
+      '<td class="muted">' + formatDate(inv.invoiceDate) + '</td>' +
+      '<td style="' + (overdue?'color:#e53e3e':'') + '">' + formatDate(inv.dueDate) + '</td>' +
+      '<td>' + fmtINR(inv.total||0) + '</td>' +
+      '<td style="color:' + (collected>0?'#1d6f42':'#aaa') + '">' + (collected>0?fmtINR(collected):'—') + '</td>' +
+      '<td><span class="pill pill-' + badge + '">' + cap(badge) + '</span></td>' +
+      '<td><a class="action-link" href="invoices.html?id=' + inv.id + '">Open</a></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function showTab(el, tabId) {
+  document.querySelectorAll('.history-tab').forEach(function(t){ t.classList.remove('active'); });
+  el.classList.add('active');
+  document.getElementById('hist-quotes').style.display   = tabId==='hist-quotes'   ? 'block' : 'none';
+  document.getElementById('hist-invoices').style.display = tabId==='hist-invoices' ? 'block' : 'none';
+}
+
+// ── EDIT CLIENT (detail view) ─────────────────────────────
+function toggleDetailEdit() {
+  var form = document.getElementById('det-edit-form');
+  if (!form.classList.contains('open')) {
+    var client = getClients().find(function(c){ return c.id===currentClientId; });
+    if (!client) return;
+    document.getElementById('det-f-name').value      = client.name      || '';
+    document.getElementById('det-f-contact').value   = client.contact   || '';
+    document.getElementById('det-f-instagram').value = client.instagram || '';
+    document.getElementById('det-f-notes').value     = client.notes     || '';
+  }
+  form.classList.toggle('open');
+}
+
+function saveDetailEdit() {
+  var name = document.getElementById('det-f-name').value.trim();
+  if (!name) { showToast('Name is required'); return; }
+  var clients = getClients();
+  var idx = clients.findIndex(function(c){ return c.id===currentClientId; });
+  if (idx < 0) return;
+  clients[idx] = Object.assign({}, clients[idx], {
+    name:      name,
+    contact:   document.getElementById('det-f-contact').value.trim(),
+    instagram: document.getElementById('det-f-instagram').value.trim(),
+    notes:     document.getElementById('det-f-notes').value.trim(),
+  });
+  saveClients(clients);
+  showToast('Client updated');
+  openDetail(currentClientId);
+}
+
+function deleteCurrentClient() {
+  if (!currentClientId) return;
+  var client = getClients().find(function(c){ return c.id===currentClientId; });
+  if (!client) return;
+  var qc = getQuotes().filter(function(q){ return q.clientName===client.name; }).length;
+  var ic = getInvoices().filter(function(i){ return i.clientName===client.name; }).length;
+  var msg = 'Delete ' + client.name + '?';
+  if (qc+ic > 0) msg += ' Their ' + qc + ' quote(s) and ' + ic + ' invoice(s) will NOT be deleted.';
+  if (!confirm(msg)) return;
+  saveClients(getClients().filter(function(c){ return c.id!==currentClientId; }));
+  showToast('Client deleted');
+  closeDetail();
+}
+</script>
+</body>
+</html>

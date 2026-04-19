@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quotations — Studio App</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    .view-list { display: block; }
+    .view-form { display: none; }
+    body.form-open .view-list { display: none; }
+    body.form-open .view-form { display: block; }
+
+    .filter-tabs { display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; }
+    .filter-tab  { padding: 5px 14px; font-size: 12px; font-weight: 500; border-radius: 20px; border: 1px solid #e5e5e5; background: #fff; color: #888; cursor: pointer; transition: all .15s; }
+    .filter-tab.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+    .form-cols  { display: grid; grid-template-columns: 1fr 320px; gap: 1.25rem; align-items: start; }
+    .form-left  { display: flex; flex-direction: column; gap: 1rem; }
+    .form-right { position: sticky; top: 1rem; }
+
+    .line-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .line-table th { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .04em; padding: 0 8px 8px 0; border-bottom: 1px solid #e5e5e5; }
+    .line-table td { padding: 6px 8px 6px 0; border-bottom: 1px solid #f5f5f4; vertical-align: middle; }
+    .line-table input { width: 100%; padding: 6px 8px; font-size: 13px; border: 1px solid #e5e5e5; border-radius: 6px; background: #fff; color: #1a1a1a; font-family: inherit; }
+    .line-table input:focus { outline: none; border-color: #1a1a1a; }
+    .col-desc { width: 40%; }
+    .col-qty  { width: 10%; }
+    .col-rate { width: 20%; }
+    .col-amt  { width: 20%; color: #555; }
+    .col-del  { width: 10%; text-align: center; }
+    .del-btn  { background: none; border: none; color: #ccc; cursor: pointer; font-size: 18px; line-height: 1; padding: 0 4px; }
+    .del-btn:hover { color: #e53e3e; }
+
+    .totals-block { border-top: 1px solid #e5e5e5; padding-top: .85rem; margin-top: .5rem; }
+    .tot-row { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; color: #555; }
+    .tot-row.grand { font-weight: 700; font-size: 15px; color: #1a1a1a; border-top: 1px solid #e5e5e5; margin-top: 5px; padding-top: 8px; }
+
+    .gst-row { display: flex; align-items: center; gap: 10px; margin: .75rem 0 .25rem; }
+    .gst-row label { font-size: 12px; color: #555; font-weight: 600; }
+    .gst-row select { width: auto; padding: 5px 8px; font-size: 12px; }
+
+    .preview-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 1.25rem; font-size: 12px; }
+    .prev-studio { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+    .prev-meta   { font-size: 11px; color: #888; margin-bottom: .75rem; }
+    .prev-divider{ border: none; border-top: 1px solid #e5e5e5; margin: .6rem 0; }
+    .prev-label  { font-size: 10px; color: #aaa; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+    .prev-client { font-size: 13px; font-weight: 600; margin-bottom: .6rem; }
+    .prev-line   { display: flex; justify-content: space-between; font-size: 11px; padding: 2px 0; }
+    .prev-line.head { color: #aaa; border-bottom: 1px solid #f0f0f0; padding-bottom: 4px; margin-bottom: 2px; }
+    .prev-total  { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; border-top: 1px solid #e5e5e5; padding-top: 6px; margin-top: 4px; }
+    .prev-subtot { display: flex; justify-content: space-between; font-size: 11px; color: #888; padding: 2px 0; }
+    .preview-label-head { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .04em; margin-bottom: .6rem; }
+
+    .form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 1rem; }
+    .btn-wa { background: #25d366; color: #fff; border-color: #25d366; }
+    .btn-wa:hover { background: #1fb558; }
+
+    .autocomplete-wrap { position: relative; }
+    .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #d0d0d0; border-radius: 8px; z-index: 100; max-height: 180px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,.1); display: none; }
+    .autocomplete-item { padding: 9px 12px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f5f5f4; }
+    .autocomplete-item:last-child { border-bottom: none; }
+    .autocomplete-item:hover { background: #f5f5f4; }
+    .ac-sub { font-size: 11px; color: #aaa; }
+
+    @media(max-width:768px){
+      .form-cols { grid-template-columns: 1fr; }
+      .form-right { position: static; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main-area">
+    <div class="page">
+      <div class="limit-banner" id="limit-banner"></div>
+
+      <!-- LIST VIEW -->
+      <div class="view-list">
+        <div class="page-header">
+          <h1>Quotations</h1>
+          <button class="btn btn-primary" onclick="openForm()">+ New quote</button>
+        </div>
+        <div class="filter-tabs">
+          <button class="filter-tab active" onclick="setFilter(this,'all')">All</button>
+          <button class="filter-tab" onclick="setFilter(this,'draft')">Draft</button>
+          <button class="filter-tab" onclick="setFilter(this,'sent')">Sent</button>
+          <button class="filter-tab" onclick="setFilter(this,'accepted')">Accepted</button>
+        </div>
+        <div class="card">
+          <div id="list-empty" class="empty-state" style="display:none">
+            <div class="empty-icon">📄</div>
+            <h3>No quotations yet</h3>
+            <p>Create your first quote to send to a client.</p>
+            <button class="btn btn-primary" onclick="openForm()">New quote</button>
+          </div>
+          <div class="table-wrap" id="list-wrap">
+            <table>
+              <thead><tr>
+                <th>Ref</th><th>Client</th><th>Event date</th>
+                <th>Amount</th><th>Valid until</th><th>Status</th><th>Action</th>
+              </tr></thead>
+              <tbody id="quotes-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- FORM VIEW -->
+      <div class="view-form">
+        <div class="page-header">
+          <div style="display:flex;align-items:center;gap:12px">
+            <button class="btn btn-sm" onclick="closeForm()">← Back</button>
+            <h1 id="form-title">New quotation</h1>
+            <span class="pill pill-draft" id="form-ref-badge"></span>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-sm" onclick="saveDraft()">Save draft</button>
+            <button class="btn btn-sm btn-primary" onclick="sendQuote()">Mark as sent</button>
+          </div>
+        </div>
+
+        <div class="form-cols">
+          <!-- LEFT -->
+          <div class="form-left">
+            <!-- Client -->
+            <div class="card">
+              <div style="font-size:13px;font-weight:600;margin-bottom:.85rem">Client details</div>
+              <div class="form-row cols-2" style="margin-bottom:.75rem">
+                <div class="form-group">
+                  <label>Client name</label>
+                  <div class="autocomplete-wrap">
+                    <input type="text" id="f-client-name" placeholder="Start typing..." autocomplete="off"
+                      oninput="onClientInput(this)" onblur="hideAC()">
+                    <div class="autocomplete-list" id="ac-list"></div>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Phone / email</label>
+                  <input type="text" id="f-client-contact" placeholder="98765 43210" oninput="updatePreview()">
+                </div>
+              </div>
+              <div class="form-row cols-3">
+                <div class="form-group">
+                  <label>Quote date</label>
+                  <input type="date" id="f-quote-date" oninput="autoValidUntil()">
+                </div>
+                <div class="form-group">
+                  <label>Valid until <span style="font-weight:400;color:#aaa;font-size:10px">auto +14d</span></label>
+                  <input type="date" id="f-valid-until" oninput="updatePreview()">
+                </div>
+                <div class="form-group">
+                  <label>Event date</label>
+                  <input type="date" id="f-event-date" oninput="updatePreview()">
+                </div>
+              </div>
+              <div class="form-group" style="margin-top:.75rem">
+                <label>Venue <span style="font-weight:400;color:#aaa;font-size:10px">optional</span></label>
+                <input type="text" id="f-venue" placeholder="Taj Krishna, Hyderabad" oninput="updatePreview()">
+              </div>
+            </div>
+
+            <!-- Line items -->
+            <div class="card">
+              <div style="font-size:13px;font-weight:600;margin-bottom:.85rem">Line items</div>
+              <table class="line-table">
+                <thead><tr>
+                  <th class="col-desc">Description</th>
+                  <th class="col-qty">Qty</th>
+                  <th class="col-rate">Rate (₹)</th>
+                  <th class="col-amt">Amount</th>
+                  <th class="col-del"></th>
+                </tr></thead>
+                <tbody id="line-body"></tbody>
+              </table>
+              <button class="btn btn-sm" style="margin-top:.75rem" onclick="addLine()">+ Add item</button>
+
+              <div class="gst-row">
+                <label>GST</label>
+                <select id="f-gst" onchange="updateTotalsUI()">
+                  <option value="0">None (0%)</option>
+                  <option value="5">5%</option>
+                  <option value="12">12%</option>
+                  <option value="18" selected>18% (standard)</option>
+                  <option value="28">28%</option>
+                </select>
+                <span style="font-size:11px;color:#aaa">applied to subtotal</span>
+              </div>
+
+              <div class="totals-block">
+                <div class="tot-row"><span>Subtotal</span><span id="t-sub">₹0</span></div>
+                <div class="tot-row"><span id="t-gst-lbl">GST (18%)</span><span id="t-gst">₹0</span></div>
+                <div class="tot-row grand"><span>Total</span><span id="t-total">₹0</span></div>
+              </div>
+            </div>
+
+            <!-- Notes -->
+            <div class="card">
+              <div class="form-group">
+                <label>Notes <span style="font-weight:400;color:#aaa;font-size:10px">optional</span></label>
+                <textarea id="f-notes" rows="3" placeholder="Payment terms, what's included..." oninput="updatePreview()"></textarea>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn" onclick="saveDraft()">Save draft</button>
+              <button class="btn" onclick="downloadPDF()">Download PDF</button>
+              <button class="btn btn-wa" onclick="shareWhatsApp()">Share on WhatsApp</button>
+              <button class="btn btn-primary" onclick="sendQuote()">Mark as sent</button>
+              <button class="btn btn-danger btn-sm" id="btn-del" onclick="deleteCurrentQuote()" style="display:none">Delete</button>
+            </div>
+          </div>
+
+          <!-- RIGHT — preview -->
+          <div class="form-right">
+            <div class="preview-label-head">Live preview</div>
+            <div class="preview-card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem">
+                <div>
+                  <div class="prev-studio" id="pv-studio">Studio App</div>
+                  <div class="prev-meta"   id="pv-contact"></div>
+                </div>
+                <div style="text-align:right">
+                  <div style="font-size:12px;font-weight:600" id="pv-ref">#QT-001</div>
+                  <div style="font-size:11px;color:#aaa"      id="pv-date"></div>
+                </div>
+              </div>
+              <hr class="prev-divider">
+              <div class="prev-label">Bill to</div>
+              <div class="prev-client" id="pv-client">—</div>
+              <div id="pv-event" style="font-size:11px;color:#888;margin-bottom:.6rem;display:none"></div>
+              <div class="prev-line head"><span>Item</span><span>Amount</span></div>
+              <div id="pv-lines"></div>
+              <hr class="prev-divider">
+              <div class="prev-subtot"><span>Subtotal</span><span id="pv-sub">₹0</span></div>
+              <div class="prev-subtot"><span id="pv-gst-lbl">GST 18%</span><span id="pv-gst">₹0</span></div>
+              <div class="prev-total"><span>Total</span><span id="pv-total">₹0</span></div>
+              <div style="font-size:10px;color:#aaa;margin-top:.75rem" id="pv-valid"></div>
+              <div style="font-size:10px;color:#aaa;margin-top:3px"    id="pv-notes"></div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /view-form -->
+
+    </div>
+  </main>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/nav.js"></script>
+<script src="../js/pdf.js"></script>
+<script>
+'use strict';
+
+let currentId  = null;
+let lineItems  = [];
+let curFilter  = 'all';
+
+// Boot
+renderNav('quotes', '../');
+initLimitBanner();
+const params = new URLSearchParams(window.location.search);
+if (params.get('new') === '1') {
+  openForm();
+  // Pre-fill client if coming from clients page
+  var prefill = sessionStorage.getItem('prefill_client');
+  if (prefill) {
+    try {
+      var pc = JSON.parse(prefill);
+      document.getElementById('f-client-name').value    = pc.name    || '';
+      document.getElementById('f-client-contact').value = pc.contact || '';
+      updatePreview();
+    } catch(e) {}
+    sessionStorage.removeItem('prefill_client');
+  }
+}
+else if (params.get('id'))     openForm(params.get('id'));
+else                           renderList();
+
+// ─── LIST ───────────────────────────────────────────────
+function renderList() {
+  const all      = getQuotes();
+  const filtered = curFilter === 'all' ? all : all.filter(q => q.status === curFilter);
+
+  if (all.length === 0) {
+    document.getElementById('list-empty').style.display = 'block';
+    document.getElementById('list-wrap').style.display  = 'none';
+    return;
+  }
+  document.getElementById('list-empty').style.display = 'none';
+  document.getElementById('list-wrap').style.display  = 'block';
+
+  const tbody = document.getElementById('quotes-tbody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:2rem;color:#aaa">No ${curFilter} quotes.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(q => {
+    const expired = q.status === 'sent' && isOverdue(q.validUntil);
+    const badge   = expired ? 'overdue' : q.status;
+    return `<tr>
+      <td><a class="action-link" onclick="openForm('${q.id}')">${q.ref}</a></td>
+      <td>${q.clientName || '—'}</td>
+      <td>${q.eventDate ? formatDate(q.eventDate) : '<span style="color:#ccc">—</span>'}</td>
+      <td>${fmtINR(q.total||0)}</td>
+      <td style="${expired?'color:#e53e3e':''}">${formatDate(q.validUntil)}</td>
+      <td><span class="pill pill-${badge}">${cap(badge)}</span></td>
+      <td>
+        <a class="action-link" onclick="openForm('${q.id}')">Edit</a>
+        ${(q.status==='sent'||q.status==='accepted') ? ` &nbsp;·&nbsp; <a class="action-link" onclick="convertToInvoice('${q.id}')">Convert</a>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function setFilter(el, f) {
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  curFilter = f;
+  renderList();
+}
+function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : ''; }
+
+// ─── FORM OPEN / CLOSE ──────────────────────────────────
+function openForm(id = null) {
+  currentId = id;
+  document.body.classList.add('form-open');
+
+  if (id) {
+    const q = getQuoteById(id);
+    if (!q) { closeForm(); return; }
+    document.getElementById('form-title').textContent     = 'Edit quotation';
+    document.getElementById('form-ref-badge').textContent = q.ref;
+    document.getElementById('f-client-name').value        = q.clientName    || '';
+    document.getElementById('f-client-contact').value     = q.clientContact || '';
+    document.getElementById('f-quote-date').value         = q.quoteDate     || '';
+    document.getElementById('f-valid-until').value        = q.validUntil    || '';
+    document.getElementById('f-event-date').value         = q.eventDate     || '';
+    document.getElementById('f-venue').value              = q.venue         || '';
+    document.getElementById('f-gst').value                = q.gstRate ?? 18;
+    document.getElementById('f-notes').value              = q.notes         || '';
+    lineItems = JSON.parse(JSON.stringify(q.lineItems || [blankLine()]));
+    document.getElementById('btn-del').style.display      = 'inline-flex';
+  } else {
+    const { ref } = nextQuoteNumber();
+    document.getElementById('form-title').textContent     = 'New quotation';
+    document.getElementById('form-ref-badge').textContent = ref;
+    document.getElementById('f-client-name').value        = '';
+    document.getElementById('f-client-contact').value     = '';
+    document.getElementById('f-quote-date').value         = today();
+    document.getElementById('f-valid-until').value        = addDays(today(), 14);
+    document.getElementById('f-event-date').value         = '';
+    document.getElementById('f-venue').value              = '';
+    document.getElementById('f-gst').value                = '18';
+    document.getElementById('f-notes').value              = getSettings().defaultNotes || '';
+    lineItems = [blankLine()];
+    document.getElementById('btn-del').style.display      = 'none';
+  }
+  renderLines();
+  updatePreview();
+}
+
+function closeForm() {
+  document.body.classList.remove('form-open');
+  currentId = null; lineItems = [];
+  history.replaceState(null, '', window.location.pathname);
+  renderList();
+}
+
+// ─── LINE ITEMS ─────────────────────────────────────────
+function blankLine() { return { desc:'', qty:1, rate:0 }; }
+
+function renderLines() {
+  document.getElementById('line-body').innerHTML = lineItems.map((item, i) => `
+    <tr>
+      <td class="col-desc">
+        <input value="${esc(item.desc)}" placeholder="Description"
+          oninput="lineItems[${i}].desc=this.value;updatePreview()">
+      </td>
+      <td class="col-qty">
+        <input type="number" value="${item.qty}" min="1" style="text-align:center"
+          oninput="lineItems[${i}].qty=+this.value||1;updateTotalsUI()">
+      </td>
+      <td class="col-rate">
+        <input type="number" value="${item.rate}" min="0" placeholder="0"
+          oninput="lineItems[${i}].rate=+this.value||0;updateTotalsUI()">
+      </td>
+      <td class="col-amt">${fmtINR(item.qty*item.rate)}</td>
+      <td class="col-del">
+        ${lineItems.length > 1 ? `<button class="del-btn" onclick="removeLine(${i})">×</button>` : ''}
+      </td>
+    </tr>`).join('');
+}
+
+function addLine()       { lineItems.push(blankLine()); renderLines(); updatePreview(); }
+function removeLine(i)   { lineItems.splice(i,1); renderLines(); updateTotalsUI(); }
+
+// ─── TOTALS ─────────────────────────────────────────────
+function updateTotalsUI() {
+  const rate = +document.getElementById('f-gst').value;
+  const { subtotal, gst, total } = calcTotals(lineItems, rate);
+  document.getElementById('t-sub').textContent     = fmtINR(subtotal);
+  document.getElementById('t-gst-lbl').textContent = `GST (${rate}%)`;
+  document.getElementById('t-gst').textContent     = fmtINR(gst);
+  document.getElementById('t-total').textContent   = fmtINR(total);
+  // refresh amount col
+  document.querySelectorAll('#line-body tr').forEach((tr,i) => {
+    const c = tr.querySelector('.col-amt');
+    if (c) c.textContent = fmtINR(lineItems[i].qty * lineItems[i].rate);
+  });
+  updatePreview();
+}
+
+// ─── PREVIEW ────────────────────────────────────────────
+function updatePreview() {
+  const s    = getSettings();
+  const rate = +document.getElementById('f-gst').value;
+  const { subtotal, gst, total } = calcTotals(lineItems, rate);
+  const client     = document.getElementById('f-client-name').value    || '—';
+  const validUntil = document.getElementById('f-valid-until').value;
+  const eventDate  = document.getElementById('f-event-date').value;
+  const venue      = document.getElementById('f-venue').value;
+  const notes      = document.getElementById('f-notes').value;
+  const ref        = document.getElementById('form-ref-badge').textContent;
+  const qDate      = document.getElementById('f-quote-date').value;
+
+  document.getElementById('pv-studio').textContent  = s.studioName || 'Studio App';
+  document.getElementById('pv-contact').textContent = [s.phone,s.email].filter(Boolean).join(' · ');
+  document.getElementById('pv-ref').textContent     = ref;
+  document.getElementById('pv-date').textContent    = formatDate(qDate);
+  document.getElementById('pv-client').textContent  = client;
+
+  const evEl = document.getElementById('pv-event');
+  if (eventDate) {
+    evEl.style.display = 'block';
+    evEl.textContent   = formatDate(eventDate) + (venue ? ' · ' + venue : '');
+  } else { evEl.style.display = 'none'; }
+
+  document.getElementById('pv-lines').innerHTML = lineItems.map(it =>
+    `<div class="prev-line">
+      <span style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.desc||'—'}</span>
+      <span>${fmtINR(it.qty*it.rate)}</span>
+    </div>`).join('');
+
+  document.getElementById('pv-sub').textContent     = fmtINR(subtotal);
+  document.getElementById('pv-gst-lbl').textContent = `GST ${rate}%`;
+  document.getElementById('pv-gst').textContent     = fmtINR(gst);
+  document.getElementById('pv-total').textContent   = fmtINR(total);
+  document.getElementById('pv-valid').textContent   = validUntil ? 'Valid until ' + formatDate(validUntil) : '';
+  document.getElementById('pv-notes').textContent   = notes ? notes.slice(0,80)+(notes.length>80?'…':'') : '';
+}
+
+// ─── AUTO VALID UNTIL ───────────────────────────────────
+function autoValidUntil() {
+  const d = document.getElementById('f-quote-date').value;
+  if (d) document.getElementById('f-valid-until').value = addDays(d, 14);
+  updatePreview();
+}
+
+// ─── CLIENT AUTOCOMPLETE ────────────────────────────────
+function onClientInput(inp) {
+  updatePreview();
+  const val = inp.value.trim().toLowerCase();
+  if (!val) { hideAC(); return; }
+  const hits = getClients().filter(c => c.name.toLowerCase().includes(val)).slice(0,5);
+  const list = document.getElementById('ac-list');
+  if (!hits.length) { hideAC(); return; }
+  list.innerHTML = hits.map(c =>
+    `<div class="autocomplete-item" onmousedown="pickClient('${esc(c.name)}','${esc(c.contact||'')}')">
+      <div>${c.name}</div>
+      ${c.contact?`<div class="ac-sub">${c.contact}</div>`:''}
+    </div>`).join('');
+  list.style.display = 'block';
+}
+function pickClient(name, contact) {
+  document.getElementById('f-client-name').value    = name;
+  document.getElementById('f-client-contact').value = contact;
+  hideAC(); updatePreview();
+}
+function hideAC() { setTimeout(()=>{ document.getElementById('ac-list').style.display='none'; },150); }
+
+// ─── BUILD QUOTE OBJECT ─────────────────────────────────
+function buildQuote(status) {
+  const rate = +document.getElementById('f-gst').value;
+  const { subtotal, gst, total } = calcTotals(lineItems, rate);
+  const clientName    = document.getElementById('f-client-name').value.trim();
+  const clientContact = document.getElementById('f-client-contact').value.trim();
+  if (clientName) upsertClient({ name:clientName, contact:clientContact });
+
+  const isNew = !currentId;
+  const { number, ref } = isNew
+    ? nextQuoteNumber()
+    : { number: getQuoteById(currentId)?.number, ref: document.getElementById('form-ref-badge').textContent };
+
+  return {
+    id:            currentId || genId(),
+    number, ref, status,
+    clientName, clientContact,
+    quoteDate:     document.getElementById('f-quote-date').value,
+    validUntil:    document.getElementById('f-valid-until').value,
+    eventDate:     document.getElementById('f-event-date').value,
+    venue:         document.getElementById('f-venue').value.trim(),
+    lineItems:     JSON.parse(JSON.stringify(lineItems)),
+    gstRate:       rate, subtotal, gst, total,
+    notes:         document.getElementById('f-notes').value.trim(),
+    createdAt:     currentId ? (getQuoteById(currentId)?.createdAt || Date.now()) : Date.now(),
+    updatedAt:     Date.now(),
+  };
+}
+
+// ─── SAVE / DELETE ──────────────────────────────────────
+function saveDraft() {
+  if (!currentId && !trackQuote()) return;
+  const q = buildQuote('draft');
+  currentId = q.id;
+  saveQuote(q);
+  document.getElementById('btn-del').style.display = 'inline-flex';
+  showToast('Draft saved');
+}
+
+function sendQuote() {
+  if (!currentId && !trackQuote()) return;
+  const q = buildQuote('sent');
+  currentId = q.id;
+  saveQuote(q);
+  showToast('Quote marked as sent');
+  closeForm();
+}
+
+function deleteCurrentQuote() {
+  if (!currentId) return;
+  if (!confirm('Delete this quotation? This cannot be undone.')) return;
+  deleteQuote(currentId);
+  showToast('Quote deleted');
+  closeForm();
+}
+
+// ─── WHATSAPP SHARE ─────────────────────────────────────
+function downloadPDF() {
+  if (!currentId && !trackQuote()) return;
+  const q = buildQuote(currentId ? (getQuoteById(currentId)?.status || 'draft') : 'draft');
+  currentId = q.id;
+  saveQuote(q);
+  document.getElementById('btn-del').style.display = 'inline-flex';
+  generateQuotePDF(q);
+}
+
+function shareWhatsApp() {
+  const s      = getSettings();
+  const client = document.getElementById('f-client-name').value.trim() || 'there';
+  const ref    = document.getElementById('form-ref-badge').textContent;
+  const rate   = +document.getElementById('f-gst').value;
+  const { total } = calcTotals(lineItems, rate);
+  const valid  = document.getElementById('f-valid-until').value;
+  const evDate = document.getElementById('f-event-date').value;
+
+  const msg =
+    `Hi ${client}, here's your quotation ${ref} from ${s.studioName||'Studio App'} for ${fmtINR(total)}` +
+    (evDate ? ` (event: ${formatDate(evDate)})` : '') + `.` +
+    `\n\nValid until ${formatDate(valid)}.` +
+    `\n\nPlease let me know if you have any questions!`;
+
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+}
+
+// ─── CONVERT TO INVOICE ─────────────────────────────────
+function convertToInvoice(quoteId) {
+  if (!trackInvoice()) return;
+  const q = getQuoteById(quoteId);
+  if (!q) return;
+  const { number, ref } = nextInvoiceNumber();
+  const s = getSettings();
+  saveInvoice({
+    id: genId(), number, ref,
+    status:        'pending',
+    clientName:    q.clientName,
+    clientContact: q.clientContact,
+    invoiceDate:   today(),
+    dueDate:       addDays(today(), s.paymentDays||14),
+    eventDate:     q.eventDate,
+    venue:         q.venue,
+    lineItems:     q.lineItems,
+    gstRate:       q.gstRate,
+    subtotal:      q.subtotal,
+    gst:           q.gst,
+    total:         q.total,
+    notes:         q.notes,
+    fromQuoteRef:  q.ref,
+    createdAt:     Date.now(),
+    updatedAt:     Date.now(),
+  });
+  q.status = 'accepted';
+  q.convertedToInvoice = true;
+  saveQuote(q);
+  showToast(`Invoice ${ref} created`);
+  renderList();
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+</script>
+</body>
+</html>
