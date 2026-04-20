@@ -56,6 +56,51 @@
     .btn-wa { background: #25d366; color: #fff; border-color: #25d366; }
     .btn-wa:hover { background: #1fb558; }
 
+    /* ── Package picker ── */
+    .pkg-btn {
+      border: 1px solid #e5e5e5; border-radius: 10px; padding: .75rem;
+      cursor: pointer; background: #fff; text-align: left;
+      transition: border-color .15s, background .15s;
+    }
+    .pkg-btn:hover { border-color: #bbb; }
+    .pkg-btn.selected { border-color: #185fa5; background: #eff6ff; }
+    .pkg-btn-name  { font-size: 12px; font-weight: 600; color: #1a1a1a; margin-bottom: 3px; }
+    .pkg-btn-price { font-size: 13px; font-weight: 700; color: #185fa5; margin-bottom: 3px; }
+    .pkg-btn-items { font-size: 10px; color: #aaa; line-height: 1.4; }
+
+    /* ── Package manager modal ── */
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.45); z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: #fff; border-radius: 16px; padding: 1.5rem;
+      width: 92%; max-width: 640px; max-height: 85vh;
+      overflow-y: auto; position: relative;
+    }
+    .modal-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.1rem;
+    }
+    .modal-head h2 { font-size: 16px; font-weight: 700; }
+    .modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #888; line-height: 1; }
+    .pm-pkg-row {
+      border: 1px solid #e5e5e5; border-radius: 10px; padding: .85rem 1rem;
+      margin-bottom: .65rem; cursor: pointer; transition: border-color .15s;
+    }
+    .pm-pkg-row:hover { border-color: #bbb; }
+    .pm-pkg-row.editing { border-color: #185fa5; }
+    .pm-pkg-row-head { display: flex; align-items: center; justify-content: space-between; }
+    .pm-pkg-name { font-size: 14px; font-weight: 600; }
+    .pm-pkg-sub  { font-size: 12px; color: #888; margin-top: 2px; }
+    .pm-edit-area { display: none; margin-top: .85rem; }
+    .pm-edit-area.open { display: block; }
+    .pm-item-row { display: grid; grid-template-columns: 1fr 60px 90px 32px; gap: 6px; margin-bottom: 6px; align-items: center; }
+    .pm-item-row input { padding: 5px 7px; font-size: 12px; border: 1px solid #e5e5e5; border-radius: 6px; font-family: inherit; width: 100%; }
+    .pm-item-row input:focus { outline: none; border-color: #1a1a1a; }
+
     .autocomplete-wrap { position: relative; }
     .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #d0d0d0; border-radius: 8px; z-index: 100; max-height: 180px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,.1); display: none; }
     .autocomplete-item { padding: 9px 12px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f5f5f4; }
@@ -161,6 +206,15 @@
               </div>
             </div>
 
+            <!-- Package picker -->
+            <div class="card" id="pkg-card">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+                <div style="font-size:13px;font-weight:600">Package templates</div>
+                <button class="btn btn-sm" onclick="openPackageManager()">Manage packages</button>
+              </div>
+              <div id="pkg-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px"></div>
+            </div>
+
             <!-- Line items -->
             <div class="card">
               <div style="font-size:13px;font-weight:600;margin-bottom:.85rem">Line items</div>
@@ -262,6 +316,7 @@ let curFilter  = 'all';
 // Boot
 renderNav('quotes', '../');
 initLimitBanner();
+renderPackagePicker();
 const params = new URLSearchParams(window.location.search);
 if (params.get('new') === '1') {
   openForm();
@@ -358,6 +413,7 @@ function openForm(id = null) {
     document.getElementById('f-notes').value              = getSettings().defaultNotes || '';
     lineItems = [blankLine()];
     document.getElementById('btn-del').style.display      = 'none';
+    document.querySelectorAll('.pkg-btn').forEach(b => b.classList.remove('selected'));
   }
   renderLines();
   updatePreview();
@@ -599,9 +655,204 @@ function convertToInvoice(quoteId) {
   renderList();
 }
 
+// ─── PACKAGES ────────────────────────────────────────────
+
+function renderPackagePicker() {
+  const pkgs = getPackages();
+  const grid = document.getElementById('pkg-grid');
+  if (!grid) return;
+  grid.innerHTML = pkgs.map(p => {
+    const total = p.items.reduce((s,i) => s + i.qty * i.rate, 0);
+    const preview = p.items.slice(0,2).map(i => i.desc).join(', ') + (p.items.length > 2 ? '…' : '');
+    return `<button class="pkg-btn" id="pkgbtn-${p.id}" onclick="applyPackage('${p.id}')">
+      <div class="pkg-btn-name">${p.name}</div>
+      <div class="pkg-btn-price">${fmtINR(total)}</div>
+      <div class="pkg-btn-items">${preview}</div>
+    </button>`;
+  }).join('');
+}
+
+function applyPackage(pkgId) {
+  const pkg = getPackageById(pkgId);
+  if (!pkg) return;
+  // highlight selected
+  document.querySelectorAll('.pkg-btn').forEach(b => b.classList.remove('selected'));
+  const btn = document.getElementById('pkgbtn-' + pkgId);
+  if (btn) btn.classList.add('selected');
+  // fill line items
+  lineItems = pkg.items.map(i => ({ desc: i.desc, qty: i.qty, rate: i.rate }));
+  document.getElementById('f-gst').value = pkg.gstRate ?? 18;
+  renderLines();
+  updateTotalsUI();
+  showToast(pkg.name + ' applied');
+}
+
+// ─── PACKAGE MANAGER ─────────────────────────────────────
+
+function openPackageManager() {
+  renderPMList();
+  document.getElementById('pkg-modal').classList.add('open');
+}
+function closePackageManager() {
+  document.getElementById('pkg-modal').classList.remove('open');
+  renderPackagePicker(); // refresh picker after edits
+}
+
+function renderPMList() {
+  const pkgs = getPackages();
+  document.getElementById('pm-list').innerHTML = pkgs.map((p,pi) => {
+    const total = p.items.reduce((s,i) => s + i.qty * i.rate, 0);
+    return `<div class="pm-pkg-row" id="pmrow-${p.id}">
+      <div class="pm-pkg-row-head" onclick="togglePMEdit('${p.id}')">
+        <div>
+          <div class="pm-pkg-name">${p.name}</div>
+          <div class="pm-pkg-sub">${p.items.length} items · ${fmtINR(total)}</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="event.stopPropagation();deletePMPackage('${p.id}')">Delete</button>
+          <span style="color:#aaa;font-size:18px;line-height:1;padding:0 4px">›</span>
+        </div>
+      </div>
+      <div class="pm-edit-area" id="pmedit-${p.id}">
+        <div class="form-group" style="margin-bottom:.65rem">
+          <label>Package name</label>
+          <input type="text" id="pmname-${p.id}" value="${esc(p.name)}"
+            onchange="updatePMField('${p.id}','name',this.value)">
+        </div>
+        <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.4rem">
+          Line items
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 60px 90px 32px;gap:6px;margin-bottom:4px">
+          <span style="font-size:10px;color:#aaa">Description</span>
+          <span style="font-size:10px;color:#aaa">Qty</span>
+          <span style="font-size:10px;color:#aaa">Rate (₹)</span>
+          <span></span>
+        </div>
+        <div id="pmitems-${p.id}">
+          ${p.items.map((item, ii) => pmItemRow(p.id, ii, item)).join('')}
+        </div>
+        <button class="btn btn-sm" style="margin-top:.5rem"
+          onclick="addPMItem('${p.id}')">+ Add item</button>
+        <div class="form-group" style="margin-top:.75rem">
+          <label>Default GST rate</label>
+          <select id="pmgst-${p.id}" onchange="updatePMField('${p.id}','gstRate',+this.value)"
+            style="width:auto;padding:5px 8px;font-size:12px">
+            <option value="0" ${p.gstRate===0?'selected':''}>None (0%)</option>
+            <option value="5" ${p.gstRate===5?'selected':''}>5%</option>
+            <option value="12" ${p.gstRate===12?'selected':''}>12%</option>
+            <option value="18" ${(!p.gstRate||p.gstRate===18)?'selected':''}>18% (standard)</option>
+            <option value="28" ${p.gstRate===28?'selected':''}>28%</option>
+          </select>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function pmItemRow(pkgId, ii, item) {
+  return `<div class="pm-item-row" id="pmitemrow-${pkgId}-${ii}">
+    <input value="${esc(item.desc)}" placeholder="Description"
+      onchange="updatePMItem('${pkgId}',${ii},'desc',this.value)">
+    <input type="number" value="${item.qty}" min="1"
+      onchange="updatePMItem('${pkgId}',${ii},'qty',+this.value||1)" style="text-align:center">
+    <input type="number" value="${item.rate}" min="0"
+      onchange="updatePMItem('${pkgId}',${ii},'rate',+this.value||0)">
+    <button onclick="removePMItem('${pkgId}',${ii})"
+      style="background:none;border:none;color:#ccc;cursor:pointer;font-size:18px;line-height:1">×</button>
+  </div>`;
+}
+
+function togglePMEdit(pkgId) {
+  const area = document.getElementById('pmedit-' + pkgId);
+  const row  = document.getElementById('pmrow-'  + pkgId);
+  const isOpen = area.classList.contains('open');
+  // close all
+  document.querySelectorAll('.pm-edit-area').forEach(a => a.classList.remove('open'));
+  document.querySelectorAll('.pm-pkg-row').forEach(r => r.classList.remove('editing'));
+  if (!isOpen) { area.classList.add('open'); row.classList.add('editing'); }
+}
+
+function updatePMField(pkgId, field, val) {
+  const pkgs = getPackages();
+  const p = pkgs.find(x => x.id === pkgId);
+  if (!p) return;
+  p[field] = val;
+  savePackages(pkgs);
+  // refresh subtitle
+  const sub = document.querySelector('#pmrow-' + pkgId + ' .pm-pkg-sub');
+  if (sub) { const t = p.items.reduce((s,i)=>s+i.qty*i.rate,0); sub.textContent = p.items.length + ' items · ' + fmtINR(t); }
+  const nameEl = document.querySelector('#pmrow-' + pkgId + ' .pm-pkg-name');
+  if (nameEl && field === 'name') nameEl.textContent = val;
+}
+
+function updatePMItem(pkgId, ii, field, val) {
+  const pkgs = getPackages();
+  const p = pkgs.find(x => x.id === pkgId);
+  if (!p || !p.items[ii]) return;
+  p.items[ii][field] = val;
+  savePackages(pkgs);
+  const sub = document.querySelector('#pmrow-' + pkgId + ' .pm-pkg-sub');
+  if (sub) { const t = p.items.reduce((s,i)=>s+i.qty*i.rate,0); sub.textContent = p.items.length + ' items · ' + fmtINR(t); }
+}
+
+function addPMItem(pkgId) {
+  const pkgs = getPackages();
+  const p = pkgs.find(x => x.id === pkgId);
+  if (!p) return;
+  p.items.push({ desc:'', qty:1, rate:0 });
+  savePackages(pkgs);
+  const ii = p.items.length - 1;
+  const container = document.getElementById('pmitems-' + pkgId);
+  if (container) container.insertAdjacentHTML('beforeend', pmItemRow(pkgId, ii, p.items[ii]));
+}
+
+function removePMItem(pkgId, ii) {
+  const pkgs = getPackages();
+  const p = pkgs.find(x => x.id === pkgId);
+  if (!p || p.items.length <= 1) return;
+  p.items.splice(ii, 1);
+  savePackages(pkgs);
+  // re-render items section only
+  const container = document.getElementById('pmitems-' + pkgId);
+  if (container) container.innerHTML = p.items.map((item,i) => pmItemRow(pkgId, i, item)).join('');
+}
+
+function deletePMPackage(pkgId) {
+  if (!confirm('Delete this package?')) return;
+  savePackages(getPackages().filter(p => p.id !== pkgId));
+  renderPMList();
+}
+
+function addNewPackage() {
+  const pkgs = getPackages();
+  const newPkg = {
+    id: 'pkg-' + genId(),
+    name: 'New package',
+    gstRate: 18,
+    items: [{ desc: '', qty: 1, rate: 0 }]
+  };
+  pkgs.push(newPkg);
+  savePackages(pkgs);
+  renderPMList();
+  // auto-open edit for the new one
+  setTimeout(() => togglePMEdit(newPkg.id), 50);
+}
+
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 }
 </script>
+<!-- Package Manager Modal -->
+<div class="modal-backdrop" id="pkg-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Manage packages</h2>
+      <button class="modal-close" onclick="closePackageManager()">×</button>
+    </div>
+    <div id="pm-list"></div>
+    <button class="btn btn-primary btn-sm" style="margin-top:.75rem" onclick="addNewPackage()">+ New package</button>
+  </div>
+</div>
+
 </body>
 </html>

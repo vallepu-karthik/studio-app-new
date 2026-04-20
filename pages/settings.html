@@ -10,6 +10,15 @@
     .settings-section { margin-bottom: 1.5rem; }
     .settings-section h3 { font-size: 13px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .85rem; padding-bottom: .5rem; border-bottom: 1px solid #e5e5e5; }
     @media(max-width:640px){ .settings-grid{ grid-template-columns:1fr; } }
+    .pkg-row { border:1px solid #e5e5e5; border-radius:10px; padding:.85rem 1rem; margin-bottom:.65rem; }
+    .pkg-row-head { display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
+    .pkg-row-name { font-size:14px; font-weight:600; }
+    .pkg-row-sub  { font-size:12px; color:#888; margin-top:2px; }
+    .pkg-edit     { display:none; margin-top:.85rem; }
+    .pkg-edit.open{ display:block; }
+    .pkg-item-row { display:grid; grid-template-columns:1fr 55px 85px 28px; gap:6px; margin-bottom:6px; align-items:center; }
+    .pkg-item-row input { padding:5px 7px; font-size:12px; border:1px solid #e5e5e5; border-radius:6px; font-family:inherit; width:100%; }
+    .pkg-item-row input:focus { outline:none; border-color:#1a1a1a; }
   </style>
 </head>
 <body>
@@ -123,6 +132,16 @@
         </div>
       </div>
 
+      <!-- Packages -->
+      <div class="card" style="margin-top:1rem">
+        <div class="settings-section" style="margin-bottom:0">
+          <h3>Package templates</h3>
+          <p style="font-size:13px;color:#888;margin-bottom:1rem">These appear in the quotation form. Click a package to expand and edit it.</p>
+          <div id="settings-pkg-list"></div>
+          <button class="btn btn-sm btn-primary" style="margin-top:.75rem" onclick="addSettingsPkg()">+ New package</button>
+        </div>
+      </div>
+
     </div>
   </main>
 </div>
@@ -133,6 +152,7 @@
   renderNav('settings', '../');
   initLimitBanner();
   loadSettings();
+  renderSettingsPkgs();
 
   function loadSettings() {
     const s = getSettings();
@@ -172,8 +192,140 @@
       currency:      document.getElementById('currency').value,
     };
     saveSettings(s);
-    renderNav('settings', '../'); // refresh brand name in sidebar
+    renderNav('settings', '../');
     showToast('Settings saved');
+  }
+
+  // ── Package management in settings ───────────────────
+  function renderSettingsPkgs() {
+    const pkgs = getPackages();
+    const el = document.getElementById('settings-pkg-list');
+    if (!el) return;
+    el.innerHTML = pkgs.map((p) => {
+      const total = p.items.reduce((s,i) => s + i.qty * i.rate, 0);
+      return `<div class="pkg-row" id="sprow-${p.id}">
+        <div class="pkg-row-head" onclick="toggleSPEdit('${p.id}')">
+          <div>
+            <div class="pkg-row-name">${p.name}</div>
+            <div class="pkg-row-sub">${p.items.length} items · ${fmtINR(total)}</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn btn-sm" onclick="event.stopPropagation();deleteSPPkg('${p.id}')">Delete</button>
+            <span style="color:#aaa;font-size:18px">›</span>
+          </div>
+        </div>
+        <div class="pkg-edit" id="spedit-${p.id}">
+          <div class="form-group" style="margin-bottom:.65rem">
+            <label>Package name</label>
+            <input type="text" value="${escSP(p.name)}"
+              onchange="updateSPField('${p.id}','name',this.value)">
+          </div>
+          <div style="font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.4rem">Line items</div>
+          <div style="display:grid;grid-template-columns:1fr 55px 85px 28px;gap:6px;margin-bottom:4px">
+            <span style="font-size:10px;color:#aaa">Description</span>
+            <span style="font-size:10px;color:#aaa">Qty</span>
+            <span style="font-size:10px;color:#aaa">Rate (₹)</span>
+            <span></span>
+          </div>
+          <div id="spitems-${p.id}">
+            ${p.items.map((item,ii) => spItemRow(p.id, ii, item)).join('')}
+          </div>
+          <button class="btn btn-sm" style="margin-top:.5rem" onclick="addSPItem('${p.id}')">+ Add item</button>
+          <div class="form-group" style="margin-top:.75rem">
+            <label>Default GST</label>
+            <select onchange="updateSPField('${p.id}','gstRate',+this.value)"
+              style="width:auto;padding:5px 8px;font-size:12px">
+              <option value="0"  ${p.gstRate===0?'selected':''}>0%</option>
+              <option value="5"  ${p.gstRate===5?'selected':''}>5%</option>
+              <option value="12" ${p.gstRate===12?'selected':''}>12%</option>
+              <option value="18" ${(!p.gstRate||p.gstRate===18)?'selected':''}>18%</option>
+              <option value="28" ${p.gstRate===28?'selected':''}>28%</option>
+            </select>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function spItemRow(pkgId, ii, item) {
+    return `<div class="pkg-item-row">
+      <input value="${escSP(item.desc)}" placeholder="Description"
+        onchange="updateSPItem('${pkgId}',${ii},'desc',this.value)">
+      <input type="number" value="${item.qty}" min="1" style="text-align:center"
+        onchange="updateSPItem('${pkgId}',${ii},'qty',+this.value||1)">
+      <input type="number" value="${item.rate}" min="0"
+        onchange="updateSPItem('${pkgId}',${ii},'rate',+this.value||0)">
+      <button onclick="removeSPItem('${pkgId}',${ii})"
+        style="background:none;border:none;color:#ccc;cursor:pointer;font-size:18px;line-height:1">×</button>
+    </div>`;
+  }
+
+  function toggleSPEdit(pkgId) {
+    document.querySelectorAll('.pkg-edit').forEach(e => e.classList.remove('open'));
+    const el = document.getElementById('spedit-' + pkgId);
+    if (el) el.classList.toggle('open');
+  }
+
+  function updateSPField(pkgId, field, val) {
+    const pkgs = getPackages();
+    const p = pkgs.find(x => x.id === pkgId);
+    if (!p) return;
+    p[field] = val;
+    savePackages(pkgs);
+    const sub = document.querySelector('#sprow-' + pkgId + ' .pkg-row-sub');
+    const nm  = document.querySelector('#sprow-' + pkgId + ' .pkg-row-name');
+    if (sub) sub.textContent = p.items.length + ' items · ' + fmtINR(p.items.reduce((s,i)=>s+i.qty*i.rate,0));
+    if (nm && field === 'name') nm.textContent = val;
+  }
+
+  function updateSPItem(pkgId, ii, field, val) {
+    const pkgs = getPackages();
+    const p = pkgs.find(x => x.id === pkgId);
+    if (!p || !p.items[ii]) return;
+    p.items[ii][field] = val;
+    savePackages(pkgs);
+    const sub = document.querySelector('#sprow-' + pkgId + ' .pkg-row-sub');
+    if (sub) sub.textContent = p.items.length + ' items · ' + fmtINR(p.items.reduce((s,i)=>s+i.qty*i.rate,0));
+  }
+
+  function addSPItem(pkgId) {
+    const pkgs = getPackages();
+    const p = pkgs.find(x => x.id === pkgId);
+    if (!p) return;
+    p.items.push({ desc:'', qty:1, rate:0 });
+    savePackages(pkgs);
+    const ii = p.items.length - 1;
+    const container = document.getElementById('spitems-' + pkgId);
+    if (container) container.insertAdjacentHTML('beforeend', spItemRow(pkgId, ii, p.items[ii]));
+  }
+
+  function removeSPItem(pkgId, ii) {
+    const pkgs = getPackages();
+    const p = pkgs.find(x => x.id === pkgId);
+    if (!p || p.items.length <= 1) return;
+    p.items.splice(ii, 1);
+    savePackages(pkgs);
+    const container = document.getElementById('spitems-' + pkgId);
+    if (container) container.innerHTML = p.items.map((item,i) => spItemRow(pkgId, i, item)).join('');
+  }
+
+  function deleteSPPkg(pkgId) {
+    if (!confirm('Delete this package?')) return;
+    savePackages(getPackages().filter(p => p.id !== pkgId));
+    renderSettingsPkgs();
+  }
+
+  function addSettingsPkg() {
+    const pkgs = getPackages();
+    const newPkg = { id:'pkg-'+Date.now(), name:'New package', gstRate:18, items:[{desc:'',qty:1,rate:0}] };
+    pkgs.push(newPkg);
+    savePackages(pkgs);
+    renderSettingsPkgs();
+    setTimeout(() => toggleSPEdit(newPkg.id), 50);
+  }
+
+  function escSP(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
   }
 </script>
 </body>

@@ -12,6 +12,7 @@ const KEYS = {
   invoices:  'sa_invoices_v1',
   clients:   'sa_clients_v1',
   settings:  'sa_settings_v1',
+  packages:  'sa_packages_v1',
 };
 
 // ── Generic storage helpers ───────────────────────────────
@@ -69,6 +70,64 @@ function getSettings() {
   };
 }
 function saveSettings(data) { Store.set(KEYS.settings, data); }
+
+// ── Packages ──────────────────────────────────────────────
+const DEFAULT_PACKAGES = [
+  {
+    id: 'pkg-1', name: 'Wedding Standard',
+    gstRate: 18,
+    items: [
+      { desc: 'Full day photography coverage', qty: 1, rate: 25000 },
+      { desc: 'Candid photography (full day)',  qty: 1, rate: 8000  },
+      { desc: 'Edited album (200 photos)',      qty: 1, rate: 7000  },
+      { desc: 'Wedding album print',            qty: 1, rate: 5000  },
+    ]
+  },
+  {
+    id: 'pkg-2', name: 'Wedding Premium',
+    gstRate: 18,
+    items: [
+      { desc: 'Full day photography coverage (2 days)', qty: 1, rate: 45000 },
+      { desc: 'Drone photography',                      qty: 1, rate: 8000  },
+      { desc: 'Edited album (400 photos)',              qty: 1, rate: 12000 },
+      { desc: 'Wedding album print (premium)',          qty: 1, rate: 8000  },
+      { desc: 'Edited video highlights reel',           qty: 1, rate: 10000 },
+      { desc: 'Pen drive with all footage',             qty: 1, rate: 1500  },
+    ]
+  },
+  {
+    id: 'pkg-3', name: 'Engagement Shoot',
+    gstRate: 18,
+    items: [
+      { desc: 'Engagement shoot (4 hours)',    qty: 1, rate: 12000 },
+      { desc: 'Multiple locations',            qty: 1, rate: 2000  },
+      { desc: 'Edited photos (100 selects)',   qty: 1, rate: 4000  },
+    ]
+  },
+  {
+    id: 'pkg-4', name: 'Portrait Session',
+    gstRate: 18,
+    items: [
+      { desc: 'Portrait session (1 hour)',   qty: 1, rate: 5000 },
+      { desc: 'Edited photos (30 selects)', qty: 1, rate: 2000 },
+    ]
+  },
+  {
+    id: 'pkg-5', name: 'Corporate / Headshots',
+    gstRate: 18,
+    items: [
+      { desc: 'Corporate photography (half day)', qty: 1, rate: 8000 },
+      { desc: 'Edited headshots (50 photos)',     qty: 1, rate: 3000 },
+    ]
+  },
+];
+
+function getPackages() {
+  const stored = Store.get(KEYS.packages);
+  return stored && stored.length > 0 ? stored : DEFAULT_PACKAGES;
+}
+function savePackages(arr) { Store.set(KEYS.packages, arr); }
+function getPackageById(id) { return getPackages().find(p => p.id === id) || null; }
 
 // ── Quotes ────────────────────────────────────────────────
 function getQuotes()       { return Store.get(KEYS.quotes)   || []; }
