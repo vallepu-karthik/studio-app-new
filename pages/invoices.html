@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a1a1a">
   <title>Invoices — Studio App</title>
   <link rel="stylesheet" href="../css/style.css">
   <style>
@@ -79,6 +80,12 @@
     .form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 1rem; }
     .btn-wa { background: #25d366; color: #fff; border-color: #25d366; }
     .btn-wa:hover { background: #1fb558; }
+    .toggle-wrap { position:relative; width:36px; height:20px; flex-shrink:0; }
+    .toggle-wrap input { opacity:0; width:0; height:0; position:absolute; }
+    .toggle-slider { position:absolute; inset:0; background:#d0d0d0; border-radius:20px; cursor:pointer; transition:background .2s; }
+    .toggle-slider::before { content:''; position:absolute; width:14px; height:14px; left:3px; top:3px; background:#fff; border-radius:50%; transition:transform .2s; }
+    .toggle-wrap input:checked + .toggle-slider { background:#1a1a1a; }
+    .toggle-wrap input:checked + .toggle-slider::before { transform:translateX(16px); }
     .from-quote-tag { font-size: 11px; background: #eff6ff; color: #1e40af; border-radius: 6px; padding: 2px 8px; margin-left: 8px; }
 
     /* ── Autocomplete ── */
@@ -266,6 +273,42 @@
               </div>
             </div>
 
+            <!-- Follow-up reminder -->
+            <div class="card">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+                <div style="font-size:13px;font-weight:600">Follow-up reminder</div>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#555">
+                  <span>Enable</span>
+                  <div class="toggle-wrap">
+                    <input type="checkbox" id="f-reminder-on" onchange="toggleReminderFields()">
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <div id="reminder-fields" style="display:none">
+                <div class="form-row cols-2">
+                  <div class="form-group">
+                    <label>Remind me on</label>
+                    <input type="date" id="f-reminder-date">
+                  </div>
+                  <div class="form-group">
+                    <label>Quick set</label>
+                    <select onchange="setQuickReminder(this.value)">
+                      <option value="">— pick —</option>
+                      <option value="3">In 3 days</option>
+                      <option value="5">In 5 days</option>
+                      <option value="7">In 7 days</option>
+                      <option value="14">In 14 days</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group" style="margin-top:.6rem">
+                  <label>Note <span style="font-weight:400;color:#aaa;font-size:10px">optional</span></label>
+                  <input type="text" id="f-reminder-note" placeholder="Chase payment milestone">
+                </div>
+              </div>
+            </div>
+
             <div class="form-actions">
               <button class="btn" onclick="saveInvoiceForm('pending')">Save</button>
               <button class="btn" onclick="downloadPDF()">Download PDF</button>
@@ -440,6 +483,11 @@ function openForm(id = null) {
     document.getElementById('f-gst').value                 = inv.gstRate ?? 18;
     document.getElementById('f-notes').value               = inv.notes         || '';
     document.getElementById('btn-del').style.display       = 'inline-flex';
+    const ron = document.getElementById('f-reminder-on');
+    ron.checked = !!(inv.reminderDate && !inv.reminderDone);
+    document.getElementById('f-reminder-date').value = inv.reminderDate || '';
+    document.getElementById('f-reminder-note').value = inv.reminderNote || '';
+    document.getElementById('reminder-fields').style.display = ron.checked ? 'block' : 'none';
 
     const fromTag = document.getElementById('from-quote-tag');
     if (inv.fromQuoteRef) {
@@ -463,6 +511,10 @@ function openForm(id = null) {
     document.getElementById('f-gst').value                 = '18';
     document.getElementById('f-notes').value               = s.defaultNotes || '';
     document.getElementById('btn-del').style.display       = 'none';
+    document.getElementById('f-reminder-on').checked       = false;
+    document.getElementById('f-reminder-date').value       = '';
+    document.getElementById('f-reminder-note').value       = '';
+    document.getElementById('reminder-fields').style.display = 'none';
     document.getElementById('from-quote-tag').style.display= 'none';
     lineItems  = [blankLine()];
     milestones = defaultMilestones(0);
@@ -680,6 +732,10 @@ function buildInvoice(status) {
     gstRate:       rate, subtotal, gst, total,
     milestones:    syncedMilestones,
     notes:         document.getElementById('f-notes').value.trim(),
+    reminderDate:  document.getElementById('f-reminder-on').checked
+                     ? document.getElementById('f-reminder-date').value : '',
+    reminderNote:  document.getElementById('f-reminder-note').value.trim(),
+    reminderDone:  false,
     fromQuoteRef:  currentId ? (getInvoiceById(currentId)?.fromQuoteRef || null) : null,
     createdAt:     currentId ? (getInvoiceById(currentId)?.createdAt || Date.now()) : Date.now(),
     updatedAt:     Date.now(),
@@ -748,6 +804,18 @@ function shareWhatsApp() {
     `\n\nThank you!`;
 
   window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+}
+
+function toggleReminderFields() {
+  const on = document.getElementById('f-reminder-on').checked;
+  document.getElementById('reminder-fields').style.display = on ? 'block' : 'none';
+  if (on && !document.getElementById('f-reminder-date').value) {
+    document.getElementById('f-reminder-date').value = addDays(today(), 7);
+  }
+}
+function setQuickReminder(days) {
+  if (!days) return;
+  document.getElementById('f-reminder-date').value = addDays(today(), +days);
 }
 
 function esc(s) {

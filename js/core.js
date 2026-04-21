@@ -67,6 +67,9 @@ function getSettings() {
     paymentDays:  14,
     defaultNotes: 'Thank you for choosing us!',
     currency:     'INR',
+    logo:         '',
+    theme:        'light',
+    termsAndConditions: '',
   };
 }
 function saveSettings(data) { Store.set(KEYS.settings, data); }
@@ -291,4 +294,126 @@ function calcTotals(items, gstRate) {
   const gst      = Math.round(subtotal * (gstRate / 100));
   const total    = subtotal + gst;
   return { subtotal, gst, total };
+}
+
+// ── Reminders ─────────────────────────────────────────────
+// A reminder is stored directly on the quote/invoice object:
+//   { reminderDate: 'YYYY-MM-DD', reminderNote: 'string', reminderDone: bool }
+
+function getDueReminders() {
+  const t = today();
+  const results = [];
+  getQuotes().forEach(q => {
+    if (q.reminderDate && !q.reminderDone && q.reminderDate <= t) {
+      results.push({ type: 'quote', id: q.id, ref: q.ref,
+        clientName: q.clientName, reminderDate: q.reminderDate,
+        reminderNote: q.reminderNote || 'Follow up on quote' });
+    }
+  });
+  getInvoices().forEach(inv => {
+    if (inv.reminderDate && !inv.reminderDone && inv.reminderDate <= t) {
+      results.push({ type: 'invoice', id: inv.id, ref: inv.ref,
+        clientName: inv.clientName, reminderDate: inv.reminderDate,
+        reminderNote: inv.reminderNote || 'Follow up on invoice' });
+    }
+  });
+  return results.sort((a, b) => a.reminderDate.localeCompare(b.reminderDate));
+}
+
+function markReminderDone(type, id) {
+  if (type === 'quote') {
+    const q = getQuoteById(id);
+    if (q) { q.reminderDone = true; saveQuote(q); }
+  } else {
+    const inv = getInvoiceById(id);
+    if (inv) { inv.reminderDone = true; saveInvoice(inv); }
+  }
+}
+
+function getAllUpcomingReminders() {
+  const t = today();
+  const results = [];
+  getQuotes().forEach(q => {
+    if (q.reminderDate && !q.reminderDone) {
+      results.push({ type:'quote', id:q.id, ref:q.ref,
+        clientName:q.clientName, reminderDate:q.reminderDate,
+        reminderNote:q.reminderNote||'Follow up on quote',
+        overdue: q.reminderDate <= t });
+    }
+  });
+  getInvoices().forEach(inv => {
+    if (inv.reminderDate && !inv.reminderDone) {
+      results.push({ type:'invoice', id:inv.id, ref:inv.ref,
+        clientName:inv.clientName, reminderDate:inv.reminderDate,
+        reminderNote:inv.reminderNote||'Follow up on invoice',
+        overdue: inv.reminderDate <= t });
+    }
+  });
+  return results.sort((a, b) => a.reminderDate.localeCompare(b.reminderDate));
+}
+
+// ── Calendar clash detection ───────────────────────────────
+// Returns all quotes that share the same event date,
+// excluding the current quote being edited (by id).
+function getClashingQuotes(eventDate, excludeId) {
+  if (!eventDate) return [];
+  return getQuotes().filter(function(q) {
+    return q.eventDate === eventDate
+      && q.id !== excludeId
+      && q.status !== 'draft'   // drafts don't block dates
+      && q.status !== 'accepted'; // already converted — not a clash
+  });
+}
+
+// Returns all clash pairs across all quotes (for dashboard).
+function getAllClashes() {
+  var quotes = getQuotes().filter(function(q) {
+    return q.eventDate && q.status !== 'draft' && q.status !== 'accepted';
+  });
+  var seen = {};
+  var clashes = [];
+  quotes.forEach(function(q) {
+    if (!seen[q.eventDate]) {
+      seen[q.eventDate] = [];
+    }
+    seen[q.eventDate].push(q);
+  });
+  Object.keys(seen).forEach(function(date) {
+    if (seen[date].length > 1) {
+      clashes.push({ date: date, quotes: seen[date] });
+    }
+  });
+  return clashes.sort(function(a, b) { return a.date.localeCompare(b.date); });
+}
+
+// ── Theme ──────────────────────────────────────────────────
+function applyTheme() {
+  var s = getSettings();
+  var theme = s.theme || 'light';
+  document.documentElement.setAttribute('data-theme', theme);
+}
+
+function toggleTheme() {
+  var s = getSettings();
+  s.theme = (s.theme === 'dark') ? 'light' : 'dark';
+  saveSettings(s);
+  applyTheme();
+  // Update toggle button label on all pages
+  var btn = document.getElementById('theme-toggle-btn');
+  if (btn) btn.textContent = s.theme === 'dark' ? '☀' : '☾';
+}
+
+// ── Logo ───────────────────────────────────────────────────
+function getLogo() { return getSettings().logo || ''; }
+
+function saveLogo(base64) {
+  var s = getSettings();
+  s.logo = base64;
+  saveSettings(s);
+}
+
+function removeLogo() {
+  var s = getSettings();
+  s.logo = '';
+  saveSettings(s);
 }

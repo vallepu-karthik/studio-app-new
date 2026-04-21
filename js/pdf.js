@@ -98,13 +98,22 @@ function drawQuoteHeader(doc, settings, ref, dateStr) {
   doc.text(ref,     ML, 26);
   doc.text(dateStr, ML, 36);
 
-  /* Logo box */
-  var bx = PW - MR - 28, by = 4;
-  sf(doc, WHITE); sd(doc, WHITE);
-  doc.roundedRect(bx, by, 28, 34, 2, 2, 'FD');
-  normal(doc); doc.setFontSize(7); st(doc, MUTED);
-  doc.text(settings.studioName ? settings.studioName.slice(0,8).toUpperCase() : 'LOGO',
-           bx + 14, by + 17, {align:'center', baseline:'middle'});
+  /* Logo — real image if uploaded, fallback to studio name box */
+  var bx = PW - MR - 30, by = 4, bw = 30, bh = 34;
+  if (settings.logo) {
+    try {
+      var ext = settings.logo.indexOf('image/png') > -1 ? 'PNG' :
+                settings.logo.indexOf('image/gif') > -1 ? 'GIF' : 'JPEG';
+      doc.addImage(settings.logo, ext, bx, by, bw, bh);
+    } catch(e) {
+      sf(doc, WHITE); sd(doc, WHITE); doc.roundedRect(bx, by, bw, bh, 2, 2, 'FD');
+    }
+  } else {
+    sf(doc, WHITE); sd(doc, WHITE); doc.roundedRect(bx, by, bw, bh, 2, 2, 'FD');
+    normal(doc); doc.setFontSize(7); st(doc, MUTED);
+    doc.text(settings.studioName ? settings.studioName.slice(0,10).toUpperCase() : 'LOGO',
+             bx + bw/2, by + bh/2, {align:'center', baseline:'middle'});
+  }
 
   return hh + 2;
 }
@@ -360,10 +369,21 @@ function generateInvoicePDF(invoice) {
   doc.text('Invoice Number', ML, 22); doc.text('Date', ML, 32);
   bold(doc); doc.setFontSize(9); st(doc, WHITE);
   doc.text(ref, ML, 26); doc.text(dateStr, ML, 36);
-  var bx = PW - MR - 28;
-  sf(doc, WHITE); sd(doc, WHITE); doc.roundedRect(bx, 4, 28, 34, 2, 2, 'FD');
-  normal(doc); doc.setFontSize(7); st(doc, MUTED);
-  doc.text(studio.slice(0,8).toUpperCase(), bx + 14, 21, {align:'center', baseline:'middle'});
+
+  var bx = PW - MR - 30, bw = 30, bh = 34;
+  if (s.logo) {
+    try {
+      var ext2 = s.logo.indexOf('image/png') > -1 ? 'PNG' :
+                 s.logo.indexOf('image/gif') > -1 ? 'GIF' : 'JPEG';
+      doc.addImage(s.logo, ext2, bx, 4, bw, bh);
+    } catch(e) {
+      sf(doc, WHITE); sd(doc, WHITE); doc.roundedRect(bx, 4, bw, bh, 2, 2, 'FD');
+    }
+  } else {
+    sf(doc, WHITE); sd(doc, WHITE); doc.roundedRect(bx, 4, bw, bh, 2, 2, 'FD');
+    normal(doc); doc.setFontSize(7); st(doc, MUTED);
+    doc.text(studio.slice(0,10).toUpperCase(), bx + bw/2, 4 + bh/2, {align:'center', baseline:'middle'});
+  }
 
   var y = hh + 6;
 
@@ -407,8 +427,6 @@ function generateInvoicePDF(invoice) {
   drawContactBar(doc, s, y + 4);
   drawPageFooter(doc, ref, dateStr, client, 1);
 
-  /* Terms page */
-  drawTermsPage(doc, s, ref, dateStr, client);
-
+  /* Invoice = single page only. No terms page. */
   doc.save(ref + '.pdf');
 }

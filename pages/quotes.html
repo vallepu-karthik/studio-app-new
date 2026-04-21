@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a1a1a">
   <title>Quotations — Studio App</title>
   <link rel="stylesheet" href="../css/style.css">
   <style>
@@ -55,6 +56,14 @@
     .form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 1rem; }
     .btn-wa { background: #25d366; color: #fff; border-color: #25d366; }
     .btn-wa:hover { background: #1fb558; }
+
+    /* ── Toggle switch ── */
+    .toggle-wrap { position:relative; width:36px; height:20px; flex-shrink:0; }
+    .toggle-wrap input { opacity:0; width:0; height:0; position:absolute; }
+    .toggle-slider { position:absolute; inset:0; background:#d0d0d0; border-radius:20px; cursor:pointer; transition:background .2s; }
+    .toggle-slider::before { content:''; position:absolute; width:14px; height:14px; left:3px; top:3px; background:#fff; border-radius:50%; transition:transform .2s; }
+    .toggle-wrap input:checked + .toggle-slider { background:#1a1a1a; }
+    .toggle-wrap input:checked + .toggle-slider::before { transform:translateX(16px); }
 
     /* ── Package picker ── */
     .pkg-btn {
@@ -128,10 +137,10 @@
           <button class="btn btn-primary" onclick="openForm()">+ New quote</button>
         </div>
         <div class="filter-tabs">
-          <button class="filter-tab active" onclick="setFilter(this,'all')">All</button>
-          <button class="filter-tab" onclick="setFilter(this,'draft')">Draft</button>
-          <button class="filter-tab" onclick="setFilter(this,'sent')">Sent</button>
-          <button class="filter-tab" onclick="setFilter(this,'accepted')">Accepted</button>
+          <button class="filter-tab active" data-filter="all"      onclick="setFilter(this,'all')">All</button>
+          <button class="filter-tab"        data-filter="draft"    onclick="setFilter(this,'draft')">Draft</button>
+          <button class="filter-tab"        data-filter="sent"     onclick="setFilter(this,'sent')">Sent</button>
+          <button class="filter-tab"        data-filter="accepted" onclick="setFilter(this,'accepted')">Accepted</button>
         </div>
         <div class="card">
           <div id="list-empty" class="empty-state" style="display:none">
@@ -197,12 +206,18 @@
                 </div>
                 <div class="form-group">
                   <label>Event date</label>
-                  <input type="date" id="f-event-date" oninput="updatePreview()">
+                  <input type="date" id="f-event-date" oninput="checkClash();updatePreview();">
                 </div>
               </div>
               <div class="form-group" style="margin-top:.75rem">
                 <label>Venue <span style="font-weight:400;color:#aaa;font-size:10px">optional</span></label>
                 <input type="text" id="f-venue" placeholder="Taj Krishna, Hyderabad" oninput="updatePreview()">
+              </div>
+
+              <!-- Calendar clash warning -->
+              <div id="clash-warning" style="display:none;margin-top:.75rem;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:.75rem 1rem">
+                <div style="font-size:13px;font-weight:600;color:#9b1c1c;margin-bottom:.35rem">&#9888; Date clash detected</div>
+                <div id="clash-list" style="font-size:12px;color:#9b1c1c"></div>
               </div>
             </div>
 
@@ -254,6 +269,42 @@
               <div class="form-group">
                 <label>Notes <span style="font-weight:400;color:#aaa;font-size:10px">optional</span></label>
                 <textarea id="f-notes" rows="3" placeholder="Payment terms, what's included..." oninput="updatePreview()"></textarea>
+              </div>
+            </div>
+
+            <!-- Follow-up reminder -->
+            <div class="card">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+                <div style="font-size:13px;font-weight:600">Follow-up reminder</div>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#555">
+                  <span>Enable</span>
+                  <div class="toggle-wrap">
+                    <input type="checkbox" id="f-reminder-on" onchange="toggleReminderFields()">
+                    <span class="toggle-slider"></span>
+                  </div>
+                </label>
+              </div>
+              <div id="reminder-fields" style="display:none">
+                <div class="form-row cols-2">
+                  <div class="form-group">
+                    <label>Remind me on</label>
+                    <input type="date" id="f-reminder-date">
+                  </div>
+                  <div class="form-group">
+                    <label>Quick set</label>
+                    <select onchange="setQuickReminder(this.value)">
+                      <option value="">— pick —</option>
+                      <option value="3">In 3 days</option>
+                      <option value="5">In 5 days</option>
+                      <option value="7">In 7 days</option>
+                      <option value="14">In 14 days</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group" style="margin-top:.6rem">
+                  <label>Note <span style="font-weight:400;color:#aaa;font-size:10px">optional</span></label>
+                  <input type="text" id="f-reminder-note" placeholder="Follow up on wedding quote">
+                </div>
               </div>
             </div>
 
@@ -340,6 +391,17 @@ function renderList() {
   const all      = getQuotes();
   const filtered = curFilter === 'all' ? all : all.filter(q => q.status === curFilter);
 
+  // Update tab counts
+  const counts = { all: all.length, draft: 0, sent: 0, accepted: 0 };
+  all.forEach(q => { if (counts[q.status] !== undefined) counts[q.status]++; });
+  document.querySelectorAll('.filter-tab').forEach(t => {
+    const f   = t.dataset.filter;
+    const cnt = counts[f] || 0;
+    const base = t.dataset.label || t.textContent.replace(/\s*\d+$/, '').trim();
+    t.dataset.label = base;
+    t.textContent   = cnt > 0 ? base + ' ' + cnt : base;
+  });
+
   if (all.length === 0) {
     document.getElementById('list-empty').style.display = 'block';
     document.getElementById('list-wrap').style.display  = 'none';
@@ -356,10 +418,12 @@ function renderList() {
   tbody.innerHTML = filtered.map(q => {
     const expired = q.status === 'sent' && isOverdue(q.validUntil);
     const badge   = expired ? 'overdue' : q.status;
+    const clashIcon = q.eventDate && getClashingQuotes(q.eventDate, q.id).length > 0
+      ? ' <span title="Date clash!" style="color:#e53e3e;font-weight:700">&#9888;</span>' : '';
     return `<tr>
       <td><a class="action-link" onclick="openForm('${q.id}')">${q.ref}</a></td>
       <td>${q.clientName || '—'}</td>
-      <td>${q.eventDate ? formatDate(q.eventDate) : '<span style="color:#ccc">—</span>'}</td>
+      <td>${q.eventDate ? formatDate(q.eventDate) + clashIcon : '<span style="color:#ccc">—</span>'}</td>
       <td>${fmtINR(q.total||0)}</td>
       <td style="${expired?'color:#e53e3e':''}">${formatDate(q.validUntil)}</td>
       <td><span class="pill pill-${badge}">${cap(badge)}</span></td>
@@ -399,6 +463,12 @@ function openForm(id = null) {
     document.getElementById('f-notes').value              = q.notes         || '';
     lineItems = JSON.parse(JSON.stringify(q.lineItems || [blankLine()]));
     document.getElementById('btn-del').style.display      = 'inline-flex';
+    // Reminder
+    const ron = document.getElementById('f-reminder-on');
+    ron.checked = !!(q.reminderDate && !q.reminderDone);
+    document.getElementById('f-reminder-date').value = q.reminderDate || '';
+    document.getElementById('f-reminder-note').value = q.reminderNote || '';
+    document.getElementById('reminder-fields').style.display = ron.checked ? 'block' : 'none';
   } else {
     const { ref } = nextQuoteNumber();
     document.getElementById('form-title').textContent     = 'New quotation';
@@ -414,14 +484,22 @@ function openForm(id = null) {
     lineItems = [blankLine()];
     document.getElementById('btn-del').style.display      = 'none';
     document.querySelectorAll('.pkg-btn').forEach(b => b.classList.remove('selected'));
+    // Reminder reset
+    document.getElementById('f-reminder-on').checked      = false;
+    document.getElementById('f-reminder-date').value      = '';
+    document.getElementById('f-reminder-note').value      = '';
+    document.getElementById('reminder-fields').style.display = 'none';
   }
   renderLines();
+  checkClash();
   updatePreview();
 }
 
 function closeForm() {
   document.body.classList.remove('form-open');
   currentId = null; lineItems = [];
+  const cw = document.getElementById('clash-warning');
+  if (cw) cw.style.display = 'none';
   history.replaceState(null, '', window.location.pathname);
   renderList();
 }
@@ -562,6 +640,10 @@ function buildQuote(status) {
     lineItems:     JSON.parse(JSON.stringify(lineItems)),
     gstRate:       rate, subtotal, gst, total,
     notes:         document.getElementById('f-notes').value.trim(),
+    reminderDate:  document.getElementById('f-reminder-on').checked
+                     ? document.getElementById('f-reminder-date').value : '',
+    reminderNote:  document.getElementById('f-reminder-note').value.trim(),
+    reminderDone:  false,
     createdAt:     currentId ? (getQuoteById(currentId)?.createdAt || Date.now()) : Date.now(),
     updatedAt:     Date.now(),
   };
@@ -653,6 +735,37 @@ function convertToInvoice(quoteId) {
   saveQuote(q);
   showToast(`Invoice ${ref} created`);
   renderList();
+}
+
+function toggleReminderFields() {
+  const on = document.getElementById('f-reminder-on').checked;
+  document.getElementById('reminder-fields').style.display = on ? 'block' : 'none';
+  if (on && !document.getElementById('f-reminder-date').value) {
+    document.getElementById('f-reminder-date').value = addDays(today(), 7);
+  }
+}
+function setQuickReminder(days) {
+  if (!days) return;
+  document.getElementById('f-reminder-date').value = addDays(today(), +days);
+}
+
+// ─── CALENDAR CLASH ──────────────────────────────────────
+function checkClash() {
+  const eventDate = document.getElementById('f-event-date').value;
+  const warn      = document.getElementById('clash-warning');
+  const list      = document.getElementById('clash-list');
+  if (!eventDate) { warn.style.display = 'none'; return; }
+
+  const clashes = getClashingQuotes(eventDate, currentId);
+  if (clashes.length === 0) { warn.style.display = 'none'; return; }
+
+  warn.style.display = 'block';
+  list.innerHTML = clashes.map(q =>
+    `<div style="margin-bottom:2px">
+      <strong>${q.ref}</strong> — ${q.clientName || '—'}
+      <span style="color:#b91c1c">(${q.status})</span>
+    </div>`
+  ).join('');
 }
 
 // ─── PACKAGES ────────────────────────────────────────────

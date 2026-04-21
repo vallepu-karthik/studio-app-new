@@ -1,14 +1,11 @@
-/* ═══════════════════════════════════════════════════════
-   studio-app / js / nav.js
-   Each page passes basePath explicitly — no URL sniffing.
-   index.html  → basePath = ''
-   pages/*.html → basePath = '../'
-═══════════════════════════════════════════════════════ */
 'use strict';
 
 function renderNav(activePage, basePath) {
   var b = (basePath === undefined) ? '' : basePath;
   var settings = getSettings();
+
+  // Apply theme immediately
+  applyTheme();
 
   var nav = [
     { id:'dashboard', label:'Dashboard',  href: b + 'index.html',         dot:'#639922' },
@@ -18,28 +15,48 @@ function renderNav(activePage, basePath) {
     { id:'settings',  label:'Settings',   href: b + 'pages/settings.html', dot:'#888780' },
   ];
 
+  var dueReminders = getDueReminders();
+  var qBadge = dueReminders.filter(function(r){ return r.type==='quote'; }).length;
+  var iBadge = dueReminders.filter(function(r){ return r.type==='invoice'; }).length;
+
   var sidebar = document.getElementById('sidebar');
   if (!sidebar) return;
 
+  var logo = getLogo();
+  var isDark = (settings.theme === 'dark');
+
   var items = nav.map(function(item) {
+    var badge = '';
+    if (item.id === 'quotes'   && qBadge > 0) badge = '<span class="nav-badge">' + qBadge + '</span>';
+    if (item.id === 'invoices' && iBadge > 0) badge = '<span class="nav-badge">' + iBadge + '</span>';
     return '<li class="nav-item"><a href="' + item.href + '" class="' + (activePage === item.id ? 'active' : '') + '">' +
       '<span class="nav-dot" style="background:' + item.dot + '"></span>' +
-      item.label + '</a></li>';
+      item.label + badge + '</a></li>';
   }).join('');
 
   sidebar.innerHTML =
     '<div class="sidebar-brand">' +
-      '<div class="app-name">' + (settings.studioName || 'Studio App') + '</div>' +
-      (settings.tagline ? '<div class="app-sub">' + settings.tagline + '</div>' : '') +
+      (logo ? '<img class="sidebar-logo visible" src="' + logo + '" alt="Logo">' : '') +
+      '<div class="sidebar-brand-text">' +
+        '<div class="app-name">' + (settings.studioName || 'Studio App') + '</div>' +
+        (settings.tagline ? '<div class="app-sub">' + settings.tagline + '</div>' : '') +
+      '</div>' +
     '</div>' +
     '<ul class="nav-list">' + items + '</ul>' +
-    '<div class="sidebar-footer"></div>';
+    '<div class="sidebar-footer">' +
+      '<span id="trial-footer"></span>' +
+      '<button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme">' +
+        (isDark ? '☀' : '☾') +
+      '</button>' +
+    '</div>';
 
   var d      = getTrialData();
   var dl     = trialDaysLeft();
   var status = trialStatus();
-  var color  = status === 'over' ? '#9b1c1c' : status === 'warn' ? '#92400e' : '#888';
-  sidebar.querySelector('.sidebar-footer').innerHTML =
-    '<span style="color:' + color + ';font-size:11px">' +
-    dl + ' days left · ' + d.quotes + '/100 quotes · ' + d.invoices + '/100 invoices</span>';
+  var color  = status === 'over' ? '#e53e3e' : status === 'warn' ? '#d97706' : '';
+  var tf = document.getElementById('trial-footer');
+  if (tf) {
+    tf.textContent = dl + 'd · ' + d.quotes + '/100 · ' + d.invoices + '/100';
+    if (color) tf.style.color = color;
+  }
 }

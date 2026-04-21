@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a1a1a">
   <title>Settings — Studio App</title>
   <link rel="stylesheet" href="../css/style.css">
   <style>
@@ -36,15 +37,41 @@
       <div class="card" style="margin-bottom:1rem">
         <div class="settings-section">
           <h3>Studio identity</h3>
-          <div class="settings-grid">
-            <div class="form-group">
-              <label>Studio name</label>
-              <input type="text" id="studioName" placeholder="Lens & Light Studio">
+          <div style="display:flex;gap:1.25rem;align-items:flex-start;flex-wrap:wrap;margin-bottom:.85rem">
+            <div>
+              <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.5rem">Studio logo</div>
+              <div class="logo-upload-area" id="logo-upload-area" onclick="document.getElementById('logo-file-input').click()">
+                <img id="logo-preview" src="" alt="Logo" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:10px">
+                <div class="logo-placeholder" id="logo-placeholder">
+                  <div style="font-size:20px;margin-bottom:4px">+</div>
+                  <div>Upload logo</div>
+                  <div style="font-size:10px;margin-top:2px">PNG, JPG</div>
+                </div>
+                <input type="file" id="logo-file-input" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" onchange="handleLogoUpload(this)">
+              </div>
+              <div class="logo-remove" id="logo-remove-btn" style="display:none" onclick="handleLogoRemove()">Remove logo</div>
             </div>
-            <div class="form-group">
-              <label>Tagline <span style="font-weight:400;color:#aaa">(optional)</span></label>
-              <input type="text" id="tagline" placeholder="Capturing moments forever">
+            <div style="flex:1;min-width:200px">
+              <div class="form-group" style="margin-bottom:.75rem">
+                <label>Studio name</label>
+                <input type="text" id="studioName" placeholder="Lens & Light Studio">
+              </div>
+              <div class="form-group">
+                <label>Tagline <span style="font-weight:400;color:var(--text4)">(optional)</span></label>
+                <input type="text" id="tagline" placeholder="Capturing moments forever">
+              </div>
             </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Appearance</h3>
+          <div style="display:flex;align-items:center;gap:12px">
+            <label style="font-size:13px;color:var(--text2)">Theme</label>
+            <select id="theme-select" style="width:auto;padding:6px 10px;font-size:13px" onchange="previewTheme(this.value)">
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
           </div>
         </div>
 
@@ -64,7 +91,7 @@
               <input type="text" id="address" placeholder="Banjara Hills, Hyderabad">
             </div>
             <div class="form-group">
-              <label>GST number <span style="font-weight:400;color:#aaa">(GSTIN)</span></label>
+              <label>GST number <span style="font-weight:400;color:var(--text4)">(GSTIN)</span></label>
               <input type="text" id="gstin" placeholder="27AAPFU0939F1ZV" maxlength="15">
               <span class="form-hint">Appears on all invoice PDFs</span>
             </div>
@@ -89,7 +116,7 @@
           </div>
         </div>
 
-        <div class="settings-section" style="margin-bottom:0">
+        <div class="settings-section">
           <h3>Invoice defaults</h3>
           <div class="settings-grid">
             <div class="form-group">
@@ -107,6 +134,14 @@
               <label>Default notes</label>
               <textarea id="defaultNotes" placeholder="Thank you for choosing us!"></textarea>
             </div>
+          </div>
+        </div>
+
+        <div class="settings-section" style="margin-bottom:0">
+          <h3>Terms &amp; conditions</h3>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:.6rem">Appears on page 2 of every quotation PDF. Leave blank to use default terms.</div>
+          <div class="form-group">
+            <textarea id="termsAndConditions" rows="8" placeholder="1. This quotation is valid for 30 days.&#10;2. 30% advance required to confirm the booking.&#10;3. Travel and accommodation for outstation events to be arranged by client.&#10;..."></textarea>
           </div>
         </div>
       </div>
@@ -142,6 +177,23 @@
         </div>
       </div>
 
+      <!-- Data backup -->
+      <div class="card" style="margin-top:1rem">
+        <div class="settings-section" style="margin-bottom:0">
+          <h3>Data backup</h3>
+          <p style="font-size:13px;color:#888;margin-bottom:1rem">Export all your data as a JSON file. Import it on another device or browser to restore.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-sm" onclick="exportData()">Export backup</button>
+            <label class="btn btn-sm" style="cursor:pointer">
+              Import backup
+              <input type="file" accept=".json" style="display:none" onchange="importData(this)">
+            </label>
+            <button class="btn btn-sm btn-danger" onclick="clearAllData()">Clear all data</button>
+          </div>
+          <div id="backup-msg" style="font-size:12px;color:#1d6f42;margin-top:.6rem;display:none"></div>
+        </div>
+      </div>
+
     </div>
   </main>
 </div>
@@ -168,6 +220,16 @@
     document.getElementById('paymentDays').value   = s.paymentDays  || 14;
     document.getElementById('defaultNotes').value  = s.defaultNotes || '';
     document.getElementById('currency').value      = s.currency     || 'INR';
+    document.getElementById('termsAndConditions').value = s.termsAndConditions || '';
+    document.getElementById('theme-select').value  = s.theme        || 'light';
+
+    // Logo
+    if (s.logo) {
+      document.getElementById('logo-preview').src = s.logo;
+      document.getElementById('logo-preview').style.display = 'block';
+      document.getElementById('logo-placeholder').style.display = 'none';
+      document.getElementById('logo-remove-btn').style.display = 'block';
+    }
 
     // Trial
     const d = getTrialData();
@@ -177,23 +239,62 @@
   }
 
   function saveAll() {
-    const s = {
-      studioName:    document.getElementById('studioName').value.trim()    || 'Studio App',
-      tagline:       document.getElementById('tagline').value.trim(),
-      phone:         document.getElementById('phone').value.trim(),
-      email:         document.getElementById('email').value.trim(),
-      address:       document.getElementById('address').value.trim(),
-      gstin:         document.getElementById('gstin').value.trim().toUpperCase(),
-      quotePrefix:   document.getElementById('quotePrefix').value.trim()   || 'QT-',
-      invoicePrefix: document.getElementById('invoicePrefix').value.trim() || 'INV-',
-      startNumber:   parseInt(document.getElementById('startNumber').value) || 1,
-      paymentDays:   parseInt(document.getElementById('paymentDays').value) || 14,
-      defaultNotes:  document.getElementById('defaultNotes').value.trim(),
-      currency:      document.getElementById('currency').value,
+    const s = getSettings(); // preserve logo
+    const updated = {
+      studioName:         document.getElementById('studioName').value.trim()    || 'Studio App',
+      tagline:            document.getElementById('tagline').value.trim(),
+      phone:              document.getElementById('phone').value.trim(),
+      email:              document.getElementById('email').value.trim(),
+      address:            document.getElementById('address').value.trim(),
+      gstin:              document.getElementById('gstin').value.trim().toUpperCase(),
+      quotePrefix:        document.getElementById('quotePrefix').value.trim()   || 'QT-',
+      invoicePrefix:      document.getElementById('invoicePrefix').value.trim() || 'INV-',
+      startNumber:        parseInt(document.getElementById('startNumber').value) || 1,
+      paymentDays:        parseInt(document.getElementById('paymentDays').value) || 14,
+      defaultNotes:       document.getElementById('defaultNotes').value.trim(),
+      currency:           document.getElementById('currency').value,
+      termsAndConditions: document.getElementById('termsAndConditions').value.trim(),
+      theme:              document.getElementById('theme-select').value,
+      logo:               s.logo || '',
     };
-    saveSettings(s);
+    saveSettings(updated);
+    applyTheme();
     renderNav('settings', '../');
     showToast('Settings saved');
+  }
+
+  function previewTheme(val) {
+    document.documentElement.setAttribute('data-theme', val);
+  }
+
+  function handleLogoUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 500000) { showToast('Logo must be under 500KB'); return; }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const b64 = e.target.result;
+      saveLogo(b64);
+      document.getElementById('logo-preview').src = b64;
+      document.getElementById('logo-preview').style.display = 'block';
+      document.getElementById('logo-placeholder').style.display = 'none';
+      document.getElementById('logo-remove-btn').style.display = 'block';
+      renderNav('settings', '../');
+      showToast('Logo uploaded');
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+  }
+
+  function handleLogoRemove() {
+    if (!confirm('Remove logo?')) return;
+    removeLogo();
+    document.getElementById('logo-preview').src = '';
+    document.getElementById('logo-preview').style.display = 'none';
+    document.getElementById('logo-placeholder').style.display = 'flex';
+    document.getElementById('logo-remove-btn').style.display = 'none';
+    renderNav('settings', '../');
+    showToast('Logo removed');
   }
 
   // ── Package management in settings ───────────────────
@@ -326,6 +427,67 @@
 
   function escSP(s) {
     return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  }
+
+  function exportData() {
+    const data = {
+      version:  1,
+      exported: new Date().toISOString(),
+      settings: Store.get('sa_settings_v1'),
+      quotes:   Store.get('sa_quotes_v1'),
+      invoices: Store.get('sa_invoices_v1'),
+      clients:  Store.get('sa_clients_v1'),
+      packages: Store.get('sa_packages_v1'),
+      trial:    Store.get('sa_trial_v1'),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'studio-app-backup-' + today() + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Backup downloaded');
+  }
+
+  function importData(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data.version) { showToast('Invalid backup file'); return; }
+        if (!confirm('This will replace all your current data. Continue?')) return;
+        if (data.settings) Store.set('sa_settings_v1', data.settings);
+        if (data.quotes)   Store.set('sa_quotes_v1',   data.quotes);
+        if (data.invoices) Store.set('sa_invoices_v1', data.invoices);
+        if (data.clients)  Store.set('sa_clients_v1',  data.clients);
+        if (data.packages) Store.set('sa_packages_v1', data.packages);
+        if (data.trial)    Store.set('sa_trial_v1',    data.trial);
+        const msg = document.getElementById('backup-msg');
+        msg.textContent = 'Import successful — ' +
+          (data.quotes   || []).length + ' quotes, ' +
+          (data.invoices || []).length + ' invoices, ' +
+          (data.clients  || []).length + ' clients restored.';
+        msg.style.display = 'block';
+        loadSettings();
+        renderSettingsPkgs();
+        renderNav('settings', '../');
+      } catch(err) {
+        showToast('Failed to read backup file');
+      }
+    };
+    reader.readAsText(file);
+    input.value = '';
+  }
+
+  function clearAllData() {
+    if (!confirm('Delete ALL quotes, invoices, clients and settings? This cannot be undone.')) return;
+    ['sa_quotes_v1','sa_invoices_v1','sa_clients_v1','sa_packages_v1','sa_trial_v1'].forEach(k => Store.remove(k));
+    showToast('All data cleared');
+    loadSettings();
+    renderSettingsPkgs();
   }
 </script>
 </body>
