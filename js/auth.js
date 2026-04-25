@@ -31,7 +31,7 @@ async function requireAuth(basePath) {
   const b = basePath || '';
   _session = await sbGetSession();
   if (!_session) {
-    window.location.href = b + 'pages/auth.html';
+    window.location.href = '/pages/auth.html';
     return false;
   }
   _userId = _session.user.id;
@@ -51,27 +51,36 @@ async function syncFromCloud() {
       sbLoadSettings(_userId),
     ]);
 
-    if (quotes.length)   Store.set(KEYS.quotes,   quotes);
-    if (invoices.length) Store.set(KEYS.invoices, invoices);
-    if (clients.length)  Store.set(KEYS.clients,  clients);
-    if (packages.length) Store.set(KEYS.packages, packages);
+    // Always write — even empty arrays — so deletions on one device
+    // propagate correctly to all other devices. The old if (arr.length)
+    // guard was silently swallowing cross-device deletions.
+    if (quotes   !== null) Store.set(KEYS.quotes,   quotes);
+    if (invoices !== null) Store.set(KEYS.invoices, invoices);
+    if (clients  !== null) Store.set(KEYS.clients,  clients);
+    if (packages !== null) Store.set(KEYS.packages, packages);
 
     if (settings) {
-      // Merge cloud settings with local, preserving logo URL
-      const local = Store.get(KEYS.settings) || {};
-      const logoUrl = Store.get('sa_logo_url') || local.logo || '';
-      const localTheme = local.theme || 'light';  // ← save local theme before overwrite
-
-      Store.set(KEYS.settings, { ...local, ...settings, logo: logoUrl });
+      // Merge cloud settings with local, preserving logo URL and theme
+      const local      = Store.get(KEYS.settings) || {};
+      const logoUrl    = Store.get('sa_logo_url') || local.logo || '';
+      const localTheme = local.theme || 'light'; // never let cloud overwrite theme (FIX-15)
+      Store.set(KEYS.settings, { ...local, ...settings, logo: logoUrl, theme: localTheme });
     }
 
-    // Refresh logo from storage
-    const logoUrl = await sbGetLogoUrl(_userId);
-    if (logoUrl) {
-      Store.set('sa_logo_url', logoUrl);
-      const s = Store.get(KEYS.settings) || {};
-      s.logo = logoUrl;
-      Store.set(KEYS.settings, s);
+    // FIX-12: Cache logo URL with 1-hour TTL to avoid 2 HEAD requests on every page load
+    const LOGO_TTL    = 60 * 60 * 1000; // 1 hour in ms
+    const cachedLogoTs = localStorage.getItem('sa_logo_ts');
+    const logoExpired  = !cachedLogoTs || (Date.now() - parseInt(cachedLogoTs, 10)) > LOGO_TTL;
+
+    if (logoExpired) {
+      const logoUrl = await sbGetLogoUrl(_userId);
+      localStorage.setItem('sa_logo_ts', String(Date.now())); // cache hit or miss timestamp
+      if (logoUrl) {
+        Store.set('sa_logo_url', logoUrl);
+        const s = Store.get(KEYS.settings) || {};
+        s.logo = logoUrl;
+        Store.set(KEYS.settings, s);
+      }
     }
 
     _syncReady = true;
@@ -188,9 +197,9 @@ function _patchRemoveLogo() {
 // Accept token patches — mirror to Supabase
 function _patchCreateAcceptToken() {
   const _orig = window.createAcceptToken;
-  window.createAcceptToken = function(quoteId) {
+  window.createAcceptToken = function(quoteId, validUntil) {
     const token = _orig(quoteId);
-    if (_userId) sbCreateAcceptToken(_userId, token, quoteId).catch(e => console.warn('[Studio] acceptToken sync:', e.message));
+    if (_userId) sbCreateAcceptToken(_userId, token, quoteId, validUntil).catch(e => console.warn('[Studio] acceptToken sync:', e.message));
     return token;
   };
 }

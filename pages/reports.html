@@ -133,8 +133,18 @@
     }
     .year-nav button:hover { background: var(--bg3); }
   </style>
+  <script>
+    /* Anti-FOUC: apply theme before first paint to prevent light flash */
+    (function() {
+      try {
+        var s = JSON.parse(localStorage.getItem('sa_settings_v1') || '{}');
+        if (s.theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
+<div id="offline-banner">You're offline &mdash; changes are saved locally and will sync when reconnected.</div>
 <div class="app-shell">
   <nav class="sidebar" id="sidebar"></nav>
   <main class="main-area">
@@ -189,6 +199,8 @@
 
 <div id="toast"></div>
 <script src="../js/core.js"></script>
+  <script src="../js/env.js"></script>
+  <script src="../js/sanitize.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase.js"></script>
   <script src="../js/auth.js"></script>
@@ -471,6 +483,7 @@ function esc(s) {
 initAuth('../').then(ok => {
   if (!ok) return;
   renderNav('reports', '../');
+  initOfflineDetector();
   autoExpireQuotes();
   render();
 });

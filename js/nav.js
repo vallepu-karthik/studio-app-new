@@ -7,13 +7,14 @@ function renderNav(activePage, basePath) {
   // Apply theme immediately
   applyTheme();
 
+  // Use clean Vercel URLs — no .html extensions in nav
   var nav = [
-    { id:'dashboard', label:'Dashboard',  href: b + 'dashboard.html',         dot:'#639922' },
-    { id:'quotes',    label:'Quotations', href: b + 'pages/quotes.html',   dot:'#378ADD' },
-    { id:'invoices',  label:'Invoices',   href: b + 'pages/invoices.html', dot:'#BA7517' },
-    { id:'clients',   label:'Clients',    href: b + 'pages/clients.html',  dot:'#1D9E75' },
-    { id:'reports',   label:'Reports',    href: b + 'pages/reports.html',  dot:'#7C3AED' },
-    { id:'settings',  label:'Settings',   href: b + 'pages/settings.html', dot:'#888780' },
+    { id:'dashboard', label:'Dashboard',  href: '/app',       dot:'#639922' },
+    { id:'quotes',    label:'Quotations', href: '/quotes',    dot:'#378ADD' },
+    { id:'invoices',  label:'Invoices',   href: '/invoices',  dot:'#BA7517' },
+    { id:'clients',   label:'Clients',    href: '/clients',   dot:'#1D9E75' },
+    { id:'reports',   label:'Reports',    href: '/reports',   dot:'#7C3AED' },
+    { id:'settings',  label:'Settings',   href: '/settings',  dot:'#888780' },
   ];
 
   var dueReminders = getDueReminders();
