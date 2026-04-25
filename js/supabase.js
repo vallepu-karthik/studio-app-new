@@ -85,7 +85,7 @@ async function sbLoadSettings(userId) {
 
 async function sbSaveSettings(userId, settings) {
   // Strip logo from DB row — logo goes to Storage, not the profile JSON
-  const { logo, ...rest } = settings;
+  const { logo, theme, ...rest } = settings;  // ← add theme here
   const { error } = await _sb.from('profiles').upsert({ id: userId, settings: rest });
   if (error) throw error;
 }

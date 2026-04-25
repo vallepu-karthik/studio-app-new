@@ -60,6 +60,8 @@ async function syncFromCloud() {
       // Merge cloud settings with local, preserving logo URL
       const local = Store.get(KEYS.settings) || {};
       const logoUrl = Store.get('sa_logo_url') || local.logo || '';
+      const localTheme = local.theme || 'light';  // ← save local theme before overwrite
+
       Store.set(KEYS.settings, { ...local, ...settings, logo: logoUrl });
     }
 
