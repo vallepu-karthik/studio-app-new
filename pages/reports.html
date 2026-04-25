@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Reports — Studio App</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* ── Page layout ── */
+    .reports-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .reports-grid.full { grid-template-columns: 1fr; }
+    @media (max-width: 900px) { .reports-grid { grid-template-columns: 1fr; } }
+
+    /* ── Period selector ── */
+    .period-tabs {
+      display: flex; gap: .4rem; margin-bottom: 1.25rem;
+    }
+    .period-tab {
+      padding: 5px 14px; font-size: 12px; font-weight: 600;
+      border: 1px solid var(--border); background: var(--bg2);
+      color: var(--text2); border-radius: 20px; cursor: pointer;
+      transition: all .15s;
+    }
+    .period-tab.active {
+      background: var(--text1); color: var(--bg1); border-color: var(--text1);
+    }
+
+    /* ── Stat cards ── */
+    .stat-row {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: .75rem;
+      margin-bottom: 1rem;
+    }
+    @media (max-width: 900px) { .stat-row { grid-template-columns: repeat(2,1fr); } }
+    .stat-card {
+      background: var(--bg1); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1rem 1.1rem;
+    }
+    .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .04em; margin-bottom: .3rem; }
+    .stat-value { font-size: 24px; font-weight: 800; color: var(--text1); }
+    .stat-sub   { font-size: 11px; color: var(--text3); margin-top: .2rem; }
+    .stat-up   { color: #1d6f42; }
+    .stat-down { color: #9b1c1c; }
+
+    /* ── Chart card ── */
+    .chart-card {
+      background: var(--bg1); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.25rem 1.4rem;
+    }
+    .chart-card h3 {
+      font-size: 13px; font-weight: 700; margin-bottom: 1rem; color: var(--text1);
+    }
+
+    /* ── Bar chart ── */
+    .bar-chart-wrap { overflow-x: auto; }
+    .bar-chart {
+      display: flex; align-items: flex-end; gap: 6px;
+      height: 160px; min-width: 320px;
+    }
+    .bar-col {
+      display: flex; flex-direction: column; align-items: center;
+      flex: 1; min-width: 28px; gap: 4px;
+    }
+    .bar-amt { font-size: 9px; color: var(--text3); white-space: nowrap; }
+    .bar {
+      width: 100%; border-radius: 5px 5px 0 0;
+      background: var(--text1); opacity: .85;
+      transition: opacity .15s; cursor: default; min-height: 2px;
+      position: relative;
+    }
+    .bar.current { background: #7C3AED; opacity: 1; }
+    .bar:hover { opacity: 1; }
+    .bar-label { font-size: 9px; color: var(--text3); white-space: nowrap; }
+
+    /* ── Top clients table ── */
+    .client-row {
+      display: flex; align-items: center; gap: .75rem;
+      padding: 8px 0; border-bottom: 1px solid var(--border);
+    }
+    .client-row:last-child { border-bottom: none; }
+    .client-rank {
+      width: 20px; font-size: 11px; font-weight: 700; color: var(--text3);
+      text-align: center; flex-shrink: 0;
+    }
+    .client-bar-wrap { flex: 1; background: var(--bg2); border-radius: 4px; height: 6px; overflow: hidden; }
+    .client-bar-fill { height: 100%; border-radius: 4px; background: #7C3AED; }
+    .client-name-col { width: 140px; font-size: 12px; font-weight: 600; color: var(--text1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .client-amt-col  { width: 80px; font-size: 12px; font-weight: 700; color: var(--text1); text-align: right; flex-shrink: 0; }
+    .client-count    { font-size: 10px; color: var(--text3); }
+
+    /* ── Conversion funnel ── */
+    .funnel { display: flex; flex-direction: column; gap: .5rem; }
+    .funnel-row {
+      display: flex; align-items: center; gap: .75rem;
+    }
+    .funnel-label { width: 80px; font-size: 11px; color: var(--text3); flex-shrink: 0; }
+    .funnel-bar-wrap { flex: 1; background: var(--bg2); border-radius: 4px; height: 22px; overflow: hidden; }
+    .funnel-bar-fill {
+      height: 100%; border-radius: 4px;
+      display: flex; align-items: center; padding-left: 8px;
+      font-size: 11px; font-weight: 700; color: #fff;
+      transition: width .3s ease;
+    }
+    .funnel-count { width: 36px; font-size: 12px; font-weight: 700; color: var(--text1); text-align: right; flex-shrink: 0; }
+    .funnel-pct   { width: 40px; font-size: 11px; color: var(--text3); text-align: right; flex-shrink: 0; }
+
+    /* ── Status breakdown ── */
+    .donut-wrap { display: flex; align-items: center; gap: 1.25rem; }
+    .donut-svg  { flex-shrink: 0; }
+    .legend { display: flex; flex-direction: column; gap: .4rem; }
+    .legend-item { display: flex; align-items: center; gap: .5rem; font-size: 12px; }
+    .legend-dot  { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+    /* ── Empty states ── */
+    .chart-empty {
+      height: 120px; display: flex; align-items: center; justify-content: center;
+      font-size: 13px; color: var(--text3);
+    }
+
+    /* ── Month selector ── */
+    .year-nav {
+      display: flex; align-items: center; gap: .75rem;
+      font-size: 13px; font-weight: 600; color: var(--text1);
+    }
+    .year-nav button {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 6px; padding: 2px 8px; cursor: pointer;
+      font-size: 13px; color: var(--text1); line-height: 1.6;
+    }
+    .year-nav button:hover { background: var(--bg3); }
+  </style>
+</head>
+<body>
+<div class="app-layout">
+  <nav class="sidebar" id="sidebar"></nav>
+  <main class="main-content">
+    <div class="page-header">
+      <h1>Reports</h1>
+      <div class="year-nav">
+        <button onclick="changeYear(-1)">&#8592;</button>
+        <span id="year-label">2025</span>
+        <button onclick="changeYear(+1)">&#8594;</button>
+      </div>
+    </div>
+
+    <!-- Summary stats -->
+    <div class="stat-row" id="stat-row"></div>
+
+    <!-- Revenue chart + status donut -->
+    <div class="reports-grid">
+      <div class="chart-card">
+        <h3>Monthly Revenue (Invoices Paid)</h3>
+        <div class="bar-chart-wrap">
+          <div class="bar-chart" id="revenue-chart"></div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>Quote Status Breakdown</h3>
+        <div id="status-chart"></div>
+      </div>
+    </div>
+
+    <!-- Top clients + conversion -->
+    <div class="reports-grid">
+      <div class="chart-card">
+        <h3>Top Clients by Revenue</h3>
+        <div id="top-clients"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Quote → Invoice Conversion</h3>
+        <div id="conversion-funnel"></div>
+      </div>
+    </div>
+
+    <!-- Monthly quotes sent chart -->
+    <div class="chart-card" style="margin-bottom:1rem">
+      <h3>Monthly Quotes Sent</h3>
+      <div class="bar-chart-wrap">
+        <div class="bar-chart" id="quotes-chart"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+<script src="../js/core.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/auth.js"></script>
+<script src="../js/nav.js"></script>
+<script>
+'use strict';
+
+// boot is below in render()
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let _year = new Date().getFullYear();
+const _curMonth = new Date().getMonth(); // 0-indexed
+
+function changeYear(delta) {
+  _year += delta;
+  document.getElementById('year-label').textContent = _year;
+  render();
+}
+
+// ── Helpers ────────────────────────────────────────────────
+function fmtShort(n) {
+  n = Math.round(n);
+  if (n >= 100000) return (n/100000).toFixed(1).replace(/\.0$/,'') + 'L';
+  if (n >= 1000)   return (n/1000).toFixed(1).replace(/\.0$/,'') + 'k';
+  return String(n);
+}
+
+function isoYear(dateStr) {
+  return dateStr ? parseInt(dateStr.slice(0,4)) : null;
+}
+function isoMonth(dateStr) {
+  return dateStr ? parseInt(dateStr.slice(5,7)) - 1 : null; // 0-indexed
+}
+
+// ── Main render ───────────────────────────────────────────
+function render() {
+  const quotes   = getQuotes();
+  const invoices = getInvoices();
+
+  // Filter to selected year
+  const yearInvoices = invoices.filter(i => isoYear(i.invoiceDate || i.date) === _year);
+  const yearQuotes   = quotes.filter(q => isoYear(q.quoteDate || q.date) === _year);
+
+  renderStats(quotes, invoices, yearQuotes, yearInvoices);
+  renderRevenueChart(yearInvoices);
+  renderQuotesChart(yearQuotes);
+  renderStatusDonut(yearQuotes);
+  renderTopClients(invoices); // all-time top clients
+  renderConversion(quotes, invoices);
+}
+
+// ── Summary stats ─────────────────────────────────────────
+function renderStats(allQuotes, allInvoices, yearQuotes, yearInvoices) {
+  const paidInv   = yearInvoices.filter(i => i.status === 'paid');
+  const revenue   = paidInv.reduce((s,i) => s + (i.total||0), 0);
+  const pending   = yearInvoices.filter(i => i.status !== 'paid').reduce((s,i) => s + (i.total||0), 0);
+  const sentQ     = yearQuotes.filter(q => ['sent','accepted','expired'].includes(q.status)).length;
+  const convRate  = sentQ === 0 ? 0 : Math.round(yearInvoices.length / sentQ * 100);
+
+  // Last year comparison
+  const prevYear  = yearInvoices[0] ? _year - 1 : null;
+  const prevRev   = prevYear ? allInvoices.filter(i => i.status==='paid' && isoYear(i.invoiceDate||i.date)===prevYear).reduce((s,i)=>s+(i.total||0),0) : null;
+  const revDelta  = prevRev && prevRev > 0 ? Math.round((revenue - prevRev) / prevRev * 100) : null;
+
+  const deltaHtml = revDelta !== null
+    ? `<span class="${revDelta >= 0 ? 'stat-up' : 'stat-down'}">${revDelta >= 0 ? '▲' : '▼'} ${Math.abs(revDelta)}% vs ${_year-1}</span>`
+    : '';
+
+  document.getElementById('stat-row').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Revenue (paid)</div>
+      <div class="stat-value">${fmtINR(revenue)}</div>
+      <div class="stat-sub">${deltaHtml || _year}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Pending amount</div>
+      <div class="stat-value">${fmtINR(pending)}</div>
+      <div class="stat-sub">${yearInvoices.filter(i=>i.status!=='paid').length} unpaid invoices</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Quotes sent</div>
+      <div class="stat-value">${sentQ}</div>
+      <div class="stat-sub">${yearQuotes.filter(q=>q.status==='accepted').length} accepted</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Conversion rate</div>
+      <div class="stat-value">${convRate}%</div>
+      <div class="stat-sub">quote → invoice</div>
+    </div>
+  `;
+}
+
+// ── Revenue bar chart ─────────────────────────────────────
+function renderRevenueChart(yearInvoices) {
+  const monthly = Array(12).fill(0);
+  yearInvoices.filter(i => i.status === 'paid').forEach(i => {
+    const m = isoMonth(i.invoiceDate || i.date);
+    if (m !== null) monthly[m] += (i.total || 0);
+  });
+
+  const max = Math.max(...monthly, 1);
+  const el  = document.getElementById('revenue-chart');
+
+  if (monthly.every(v => v === 0)) {
+    el.parentElement.innerHTML = '<h3>Monthly Revenue (Invoices Paid)</h3><div class="chart-empty">No paid invoices in ' + _year + '</div>';
+    return;
+  }
+
+  el.innerHTML = MONTHS.map((mon, i) => {
+    const h   = Math.round((monthly[i] / max) * 130);
+    const isCur = (_year === new Date().getFullYear() && i === _curMonth);
+    return `<div class="bar-col">
+      <div class="bar-amt">${monthly[i] > 0 ? fmtShort(monthly[i]) : ''}</div>
+      <div class="bar ${isCur?'current':''}" style="height:${Math.max(h,2)}px" title="${mon}: ${fmtINR(monthly[i])}"></div>
+      <div class="bar-label">${mon}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Quotes sent bar chart ─────────────────────────────────
+function renderQuotesChart(yearQuotes) {
+  const monthly = Array(12).fill(0);
+  yearQuotes.forEach(q => {
+    const m = isoMonth(q.quoteDate || q.date);
+    if (m !== null) monthly[m]++;
+  });
+
+  const max = Math.max(...monthly, 1);
+  const el  = document.getElementById('quotes-chart');
+
+  if (yearQuotes.length === 0) {
+    el.parentElement.innerHTML = '<h3>Monthly Quotes Sent</h3><div class="chart-empty">No quotes in ' + _year + '</div>';
+    return;
+  }
+
+  el.innerHTML = MONTHS.map((mon, i) => {
+    const h   = Math.round((monthly[i] / max) * 130);
+    const isCur = (_year === new Date().getFullYear() && i === _curMonth);
+    return `<div class="bar-col">
+      <div class="bar-amt">${monthly[i] > 0 ? monthly[i] : ''}</div>
+      <div class="bar ${isCur?'current':''}" style="height:${Math.max(h,2)}px;opacity:.65" title="${mon}: ${monthly[i]} quotes"></div>
+      <div class="bar-label">${mon}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Status donut ──────────────────────────────────────────
+function renderStatusDonut(yearQuotes) {
+  const counts = { draft:0, sent:0, accepted:0, expired:0 };
+  yearQuotes.forEach(q => { if (counts[q.status] !== undefined) counts[q.status]++; });
+  const total = yearQuotes.length;
+
+  const el = document.getElementById('status-chart');
+  if (total === 0) {
+    el.innerHTML = '<div class="chart-empty">No quotes in ' + _year + '</div>';
+    return;
+  }
+
+  const COLORS = { draft:'#94a3b8', sent:'#3b82f6', accepted:'#22c55e', expired:'#ef4444' };
+  const LABELS = { draft:'Draft', sent:'Sent', accepted:'Accepted', expired:'Expired' };
+
+  // Build SVG donut
+  const r = 48, cx = 60, cy = 60, stroke = 18;
+  const circumference = 2 * Math.PI * r;
+  let offset = 0;
+  let arcs = '';
+
+  // Start from top (-90deg = -circumference/4 offset trick via strokeDashoffset)
+  let cumAngle = -Math.PI / 2;
+  ['accepted','sent','draft','expired'].forEach(status => {
+    const count = counts[status];
+    if (count === 0) return;
+    const pct   = count / total;
+    const angle = pct * 2 * Math.PI;
+    const x1 = cx + r * Math.cos(cumAngle);
+    const y1 = cy + r * Math.sin(cumAngle);
+    cumAngle += angle;
+    const x2 = cx + r * Math.cos(cumAngle);
+    const y2 = cy + r * Math.sin(cumAngle);
+    const large = angle > Math.PI ? 1 : 0;
+    arcs += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z"
+      fill="${COLORS[status]}" opacity="0.85"/>`;
+  });
+
+  const svg = `<svg class="donut-svg" width="120" height="120" viewBox="0 0 120 120">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--bg2)"/>
+    ${arcs}
+    <circle cx="${cx}" cy="${cy}" r="${r - stroke}" fill="var(--bg1)"/>
+    <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="18" font-weight="800" fill="var(--text1)">${total}</text>
+    <text x="${cx}" y="${cy + 10}" text-anchor="middle" font-size="9" fill="var(--text3)">quotes</text>
+  </svg>`;
+
+  const legend = ['accepted','sent','draft','expired'].map(s => {
+    if (counts[s] === 0) return '';
+    const pct = Math.round(counts[s] / total * 100);
+    return `<div class="legend-item">
+      <div class="legend-dot" style="background:${COLORS[s]}"></div>
+      <span>${LABELS[s]}</span>
+      <span style="margin-left:auto;font-weight:700">${counts[s]}</span>
+      <span style="color:var(--text3);font-size:11px;width:32px;text-align:right">${pct}%</span>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `<div class="donut-wrap">${svg}<div class="legend" style="flex:1">${legend}</div></div>`;
+}
+
+// ── Top clients ────────────────────────────────────────────
+function renderTopClients(allInvoices) {
+  const paidInv = allInvoices.filter(i => i.status === 'paid');
+  const map = {};
+  paidInv.forEach(i => {
+    const name = (i.clientName || 'Unknown').trim();
+    if (!map[name]) map[name] = { total: 0, count: 0 };
+    map[name].total += (i.total || 0);
+    map[name].count++;
+  });
+
+  const sorted = Object.entries(map).sort((a,b) => b[1].total - a[1].total).slice(0, 8);
+  const el = document.getElementById('top-clients');
+
+  if (sorted.length === 0) {
+    el.innerHTML = '<div class="chart-empty">No paid invoices yet</div>';
+    return;
+  }
+
+  const maxVal = sorted[0][1].total;
+  el.innerHTML = sorted.map(([name, data], idx) => {
+    const pct = Math.round(data.total / maxVal * 100);
+    return `<div class="client-row">
+      <div class="client-rank">${idx + 1}</div>
+      <div class="client-name-col" title="${esc(name)}">${esc(name)}</div>
+      <div class="client-bar-wrap"><div class="client-bar-fill" style="width:${pct}%"></div></div>
+      <div class="client-amt-col">${fmtINR(data.total)}</div>
+      <div class="client-count">${data.count} inv</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Conversion funnel ──────────────────────────────────────
+function renderConversion(allQuotes, allInvoices) {
+  const total    = allQuotes.length;
+  const sent     = allQuotes.filter(q => ['sent','accepted','expired'].includes(q.status)).length;
+  const accepted = allQuotes.filter(q => q.status === 'accepted').length;
+  const invoiced = allInvoices.length;
+  const paid     = allInvoices.filter(i => i.status === 'paid').length;
+
+  const el = document.getElementById('conversion-funnel');
+  if (total === 0) {
+    el.innerHTML = '<div class="chart-empty">No data yet</div>';
+    return;
+  }
+
+  const steps = [
+    { label: 'Created',  count: total,    color: '#94a3b8' },
+    { label: 'Sent',     count: sent,     color: '#3b82f6' },
+    { label: 'Accepted', count: accepted, color: '#22c55e' },
+    { label: 'Invoiced', count: invoiced, color: '#7C3AED' },
+    { label: 'Paid',     count: paid,     color: '#16a34a' },
+  ];
+
+  el.innerHTML = `<div class="funnel">` + steps.map(step => {
+    const pct    = total > 0 ? Math.round(step.count / total * 100) : 0;
+    const width  = Math.max(pct, 4);
+    return `<div class="funnel-row">
+      <div class="funnel-label">${step.label}</div>
+      <div class="funnel-bar-wrap">
+        <div class="funnel-bar-fill" style="width:${width}%;background:${step.color}">
+          ${width > 20 ? step.count : ''}
+        </div>
+      </div>
+      <div class="funnel-count">${width <= 20 ? step.count : ''}</div>
+      <div class="funnel-pct">${pct}%</div>
+    </div>`;
+  }).join('') + `</div>
+  <div style="font-size:11px;color:var(--text3);margin-top:1rem">
+    All-time · ${total} total quotes created
+  </div>`;
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Boot ──────────────────────────────────────────────────
+initAuth('../').then(ok => {
+  if (!ok) return;
+  renderNav('reports', '../');
+  autoExpireQuotes();
+  render();
+});
+</script>
+</body>
+</html>

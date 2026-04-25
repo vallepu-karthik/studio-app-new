@@ -201,6 +201,9 @@
 <div id="toast"></div>
 
 <script src="../js/core.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/auth.js"></script>
 <script src="../js/nav.js"></script>
 <script>
 'use strict';
@@ -209,9 +212,12 @@ var currentClientId = null;
 var editingClientId = null;
 
 // Boot
-renderNav('clients', '../');
-initLimitBanner();
-renderGrid();
+initAuth('../').then(ok => {
+  if (!ok) return;
+  renderNav('clients', '../');
+  initLimitBanner();
+  renderGrid();
+});
 
 // ── Avatar helpers ───────────────────────────────────────
 function avatarClass(name) {

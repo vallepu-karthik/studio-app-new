@@ -10,6 +10,7 @@
     .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
     .settings-section { margin-bottom: 1.5rem; }
     .settings-section h3 { font-size: 13px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .85rem; padding-bottom: .5rem; border-bottom: 1px solid #e5e5e5; }
+    .main-area { padding-bottom: 5rem; }
     @media(max-width:640px){ .settings-grid{ grid-template-columns:1fr; } }
     .pkg-row { border:1px solid #e5e5e5; border-radius:10px; padding:.85rem 1rem; margin-bottom:.65rem; }
     .pkg-row-head { display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
@@ -128,6 +129,11 @@
               <select id="currency">
                 <option value="INR">INR (₹)</option>
                 <option value="USD">USD ($)</option>
+                <option value="AED">AED (د.إ)</option>
+                <option value="GBP">GBP (£)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="SGD">SGD (S$)</option>
+                <option value="AUD">AUD (A$)</option>
               </select>
             </div>
             <div class="form-group" style="grid-column:1/-1">
@@ -142,6 +148,99 @@
           <div style="font-size:12px;color:var(--text3);margin-bottom:.6rem">Appears on page 2 of every quotation PDF. Leave blank to use default terms.</div>
           <div class="form-group">
             <textarea id="termsAndConditions" rows="8" placeholder="1. This quotation is valid for 30 days.&#10;2. 30% advance required to confirm the booking.&#10;3. Travel and accommodation for outstation events to be arranged by client.&#10;..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bank / Payment details -->
+      <div class="card" style="margin-bottom:1rem">
+        <div class="settings-section" style="margin-bottom:0">
+          <h3>Bank &amp; Payment details</h3>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:.85rem">These appear in the payment section of every quotation and invoice PDF.</div>
+          <div class="settings-grid">
+            <div class="form-group">
+              <label>Bank name</label>
+              <input type="text" id="bankName" placeholder="HDFC Bank">
+            </div>
+            <div class="form-group">
+              <label>Account name</label>
+              <input type="text" id="accountName" placeholder="Your Studio Name">
+            </div>
+            <div class="form-group">
+              <label>Account number</label>
+              <input type="text" id="accountNumber" placeholder="1234567890">
+            </div>
+            <div class="form-group">
+              <label>IFSC code</label>
+              <input type="text" id="ifscCode" placeholder="HDFC0001234">
+            </div>
+            <div class="form-group">
+              <label>UPI ID</label>
+              <input type="text" id="upiId" placeholder="studio@upi">
+            </div>
+            <div class="form-group">
+              <label>PhonePe number</label>
+              <input type="text" id="phonePay" placeholder="98765 43210">
+            </div>
+            <div class="form-group">
+              <label>Google Pay number</label>
+              <input type="text" id="googlePay" placeholder="98765 43210">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Social media -->
+      <div class="card" style="margin-bottom:1rem">
+        <div class="settings-section" style="margin-bottom:0">
+          <h3>Social media</h3>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:.85rem">These appear at the bottom of every quotation and invoice PDF.</div>
+          <div class="settings-grid">
+            <div class="form-group">
+              <label>Instagram</label>
+              <input type="text" id="instagram" placeholder="@yourstudio">
+            </div>
+            <div class="form-group">
+              <label>Website</label>
+              <input type="text" id="website" placeholder="www.yourstudio.in">
+            </div>
+            <div class="form-group">
+              <label>YouTube</label>
+              <input type="text" id="youtube" placeholder="youtube.com/@yourstudio">
+            </div>
+            <div class="form-group">
+              <label>Facebook</label>
+              <input type="text" id="facebook" placeholder="fb.com/yourstudio">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Google review + Signature -->
+      <div class="card" style="margin-bottom:1rem">
+        <div class="settings-section">
+          <h3>Google review link</h3>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:.85rem">This link will appear at the bottom of every invoice so clients can leave a review.</div>
+          <div class="form-group">
+            <label>Google review URL</label>
+            <input type="url" id="googleReviewLink" placeholder="https://g.page/r/your-business/review">
+            <span class="form-hint">Copy from Google Business Profile → Ask for reviews</span>
+          </div>
+        </div>
+        <div class="settings-section" style="margin-bottom:0">
+          <h3>Signature</h3>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:.85rem">Upload a transparent PNG of your signature — appears on quotation and invoice PDFs.</div>
+          <div style="display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap">
+            <div id="sig-preview-wrap" style="width:160px;height:70px;border:1px solid #e5e5e5;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fafaf9;overflow:hidden">
+              <img id="sig-preview-img" src="" alt="" style="display:none;max-width:100%;max-height:100%;object-fit:contain">
+              <span id="sig-placeholder" style="font-size:11px;color:#aaa">No signature</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <label class="btn btn-sm" style="cursor:pointer">Upload signature PNG
+                <input type="file" id="sig-file-input" accept="image/png" style="display:none" onchange="handleSigUpload(this)">
+              </label>
+              <button class="btn btn-sm btn-danger" id="sig-remove-btn" style="display:none" onclick="handleSigRemove()">Remove signature</button>
+            </div>
           </div>
         </div>
       </div>
@@ -164,6 +263,27 @@
               <input type="text" id="trial-invoices" readonly style="background:#fafaf9;color:#555">
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- WhatsApp template -->
+      <div class="card" style="margin-bottom:1rem">
+        <div class="settings-section" style="margin-bottom:0">
+          <h3>WhatsApp message template</h3>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:.85rem">
+            This message is sent when you tap "Share on WhatsApp" on a quote. Use these variables:
+            <span style="background:var(--stat-bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;font-family:monospace">{client}</span>
+            <span style="background:var(--stat-bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;font-family:monospace">{ref}</span>
+            <span style="background:var(--stat-bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;font-family:monospace">{studio}</span>
+            <span style="background:var(--stat-bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;font-family:monospace">{amount}</span>
+            <span style="background:var(--stat-bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;font-family:monospace">{event}</span>
+            <span style="background:var(--stat-bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11px;font-family:monospace">{valid}</span>
+          </div>
+          <div class="form-group" style="margin-bottom:.75rem">
+            <label>Message template</label>
+            <textarea id="whatsappTemplate" rows="5" placeholder="Hi {client}, here's your quotation {ref}..."></textarea>
+          </div>
+          <button class="btn btn-sm" onclick="resetWATemplate()">Reset to default</button>
         </div>
       </div>
 
@@ -194,17 +314,30 @@
         </div>
       </div>
 
-    </div>
+    </div><!-- /.page -->
   </main>
 </div>
+
+<!-- Sticky footer save bar -->
+<div style="position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);padding:.75rem 1.5rem;display:flex;align-items:center;justify-content:space-between;z-index:100;box-shadow:0 -2px 8px rgba(0,0,0,.06)">
+  <span style="font-size:12px;color:var(--text3)">Changes are not saved until you click Save</span>
+  <button class="btn btn-primary" onclick="saveAll()">Save changes</button>
+</div>
+
 <div id="toast"></div>
 <script src="../js/core.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/auth.js"></script>
 <script src="../js/nav.js"></script>
 <script>
-  renderNav('settings', '../');
-  initLimitBanner();
-  loadSettings();
-  renderSettingsPkgs();
+  initAuth('../').then(ok => {
+    if (!ok) return;
+    renderNav('settings', '../');
+    initLimitBanner();
+    loadSettings();
+    renderSettingsPkgs();
+  });
 
   function loadSettings() {
     const s = getSettings();
@@ -222,6 +355,28 @@
     document.getElementById('currency').value      = s.currency     || 'INR';
     document.getElementById('termsAndConditions').value = s.termsAndConditions || '';
     document.getElementById('theme-select').value  = s.theme        || 'light';
+    // Bank
+    document.getElementById('bankName').value       = s.bankName       || '';
+    document.getElementById('accountName').value    = s.accountName    || '';
+    document.getElementById('accountNumber').value  = s.accountNumber  || '';
+    document.getElementById('ifscCode').value       = s.ifscCode       || '';
+    document.getElementById('upiId').value          = s.upiId          || '';
+    document.getElementById('phonePay').value       = s.phonePay       || '';
+    document.getElementById('googlePay').value      = s.googlePay      || '';
+    // Social
+    document.getElementById('instagram').value      = s.instagram      || '';
+    document.getElementById('website').value        = s.website        || '';
+    document.getElementById('youtube').value        = s.youtube        || '';
+    document.getElementById('facebook').value       = s.facebook       || '';
+    // Review + signature
+    document.getElementById('googleReviewLink').value = s.googleReviewLink || '';
+    document.getElementById('whatsappTemplate').value = s.whatsappTemplate || '';
+    if (s.signature) {
+      document.getElementById('sig-preview-img').src = s.signature;
+      document.getElementById('sig-preview-img').style.display = 'block';
+      document.getElementById('sig-placeholder').style.display = 'none';
+      document.getElementById('sig-remove-btn').style.display = 'block';
+    }
 
     // Logo
     if (s.logo) {
@@ -256,6 +411,23 @@
       termsAndConditions: document.getElementById('termsAndConditions').value.trim(),
       theme:              document.getElementById('theme-select').value,
       logo:               s.logo || '',
+      // Bank
+      bankName:           document.getElementById('bankName').value.trim(),
+      accountName:        document.getElementById('accountName').value.trim(),
+      accountNumber:      document.getElementById('accountNumber').value.trim(),
+      ifscCode:           document.getElementById('ifscCode').value.trim(),
+      upiId:              document.getElementById('upiId').value.trim(),
+      phonePay:           document.getElementById('phonePay').value.trim(),
+      googlePay:          document.getElementById('googlePay').value.trim(),
+      // Social
+      instagram:          document.getElementById('instagram').value.trim(),
+      website:            document.getElementById('website').value.trim(),
+      youtube:            document.getElementById('youtube').value.trim(),
+      facebook:           document.getElementById('facebook').value.trim(),
+      // Review + signature
+      googleReviewLink:   document.getElementById('googleReviewLink').value.trim(),
+      signature:          s.signature || '',
+      whatsappTemplate:   document.getElementById('whatsappTemplate').value,
     };
     saveSettings(updated);
     applyTheme();
@@ -270,7 +442,7 @@
   function handleLogoUpload(input) {
     const file = input.files[0];
     if (!file) return;
-    if (file.size > 500000) { showToast('Logo must be under 500KB'); return; }
+    if (file.size > 300000) { showToast('Logo must be under 300KB'); return; }
     const reader = new FileReader();
     reader.onload = function(e) {
       const b64 = e.target.result;
@@ -423,6 +595,40 @@
     savePackages(pkgs);
     renderSettingsPkgs();
     setTimeout(() => toggleSPEdit(newPkg.id), 50);
+  }
+
+  function handleSigUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 150000) { showToast('Signature must be under 150KB'); return; }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const b64 = e.target.result;
+      const s = getSettings(); s.signature = b64; saveSettings(s);
+      document.getElementById('sig-preview-img').src = b64;
+      document.getElementById('sig-preview-img').style.display = 'block';
+      document.getElementById('sig-placeholder').style.display = 'none';
+      document.getElementById('sig-remove-btn').style.display = 'block';
+      showToast('Signature uploaded');
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+  }
+
+  function handleSigRemove() {
+    if (!confirm('Remove signature?')) return;
+    const s = getSettings(); s.signature = ''; saveSettings(s);
+    document.getElementById('sig-preview-img').src = '';
+    document.getElementById('sig-preview-img').style.display = 'none';
+    document.getElementById('sig-placeholder').style.display = 'block';
+    document.getElementById('sig-remove-btn').style.display = 'none';
+    showToast('Signature removed');
+  }
+
+  function resetWATemplate() {
+    const def = "Hi {client}, here's your quotation {ref} from {studio} for {amount}{event}.\n\nValid until {valid}.\n\nPlease let me know if you have any questions!";
+    document.getElementById('whatsappTemplate').value = def;
+    showToast('Template reset to default');
   }
 
   function escSP(s) {

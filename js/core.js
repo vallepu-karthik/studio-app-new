@@ -46,10 +46,45 @@ function isOverdue(dateStr) {
   return new Date(dateStr + 'T00:00:00') < new Date(today() + 'T00:00:00');
 }
 
+// ── Multi-currency config ─────────────────────────────────
+const CURRENCIES = {
+  INR: { symbol: '\u20b9', locale: 'en-IN', pdfSymbol: 'Rs.', label: 'INR (\u20b9)' },
+  USD: { symbol: '$',   locale: 'en-US', pdfSymbol: '$',   label: 'USD ($)' },
+  AED: { symbol: 'AED ', locale: 'en-AE', pdfSymbol: 'AED ', label: 'AED (\u062f.\u0625)' },
+  GBP: { symbol: '\u00a3', locale: 'en-GB', pdfSymbol: '\u00a3', label: 'GBP (\u00a3)' },
+  EUR: { symbol: '\u20ac', locale: 'en-DE', pdfSymbol: '\u20ac', label: 'EUR (\u20ac)' },
+  SGD: { symbol: 'S$',  locale: 'en-SG', pdfSymbol: 'S$',  label: 'SGD (S$)' },
+  AUD: { symbol: 'A$',  locale: 'en-AU', pdfSymbol: 'A$',  label: 'AUD (A$)' },
+};
+
+function getCurrencyConfig(code) {
+  return CURRENCIES[code] || CURRENCIES['INR'];
+}
+
+function getActiveCurrency() {
+  return getSettings().currency || 'INR';
+}
+
 // ── Currency formatter ────────────────────────────────────
 function fmtINR(n) {
   const num = Math.round(Number(n) || 0);
-  return '₹' + num.toLocaleString('en-IN');
+  const cur = getCurrencyConfig(getActiveCurrency());
+  return cur.symbol + num.toLocaleString(cur.locale);
+}
+
+// ── Quote auto-expiry ─────────────────────────────────────
+// Flips status: 'sent' -> 'expired' when validUntil < today.
+function autoExpireQuotes() {
+  const t = today();
+  let changed = false;
+  const quotes = getQuotes().map(q => {
+    if (q.status === 'sent' && q.validUntil && q.validUntil < t) {
+      changed = true;
+      return { ...q, status: 'expired', updatedAt: Date.now() };
+    }
+    return q;
+  });
+  if (changed) saveQuotes(quotes);
 }
 
 // ── Settings ──────────────────────────────────────────────
@@ -66,10 +101,30 @@ function getSettings() {
     startNumber:  1,
     paymentDays:  14,
     defaultNotes: 'Thank you for choosing us!',
+    invoiceDefaultNotes: '',
     currency:     'INR',
     logo:         '',
     theme:        'light',
     termsAndConditions: '',
+    // Bank / payment details
+    bankName:     '',
+    accountName:  '',
+    accountNumber:'',
+    ifscCode:     '',
+    upiId:        '',
+    phonePay:     '',
+    googlePay:    '',
+    // Social media
+    instagram:    '',
+    website:      '',
+    youtube:      '',
+    facebook:     '',
+    // Google review
+    googleReviewLink: '',
+    // Signature
+    signature:    '',
+    // WhatsApp template
+    whatsappTemplate: 'Hi {client}, here\'s your quotation {ref} from {studio} for {amount}{event}.\n\nValid until {valid}.\n\nPlease let me know if you have any questions!',
   };
 }
 function saveSettings(data) { Store.set(KEYS.settings, data); }
@@ -289,11 +344,13 @@ function setActiveNav() {
 }
 
 // ── Totals calculator ─────────────────────────────────────
-function calcTotals(items, gstRate) {
-  const subtotal = items.reduce((s, item) => s + (Number(item.qty) * Number(item.rate)), 0);
-  const gst      = Math.round(subtotal * (gstRate / 100));
-  const total    = subtotal + gst;
-  return { subtotal, gst, total };
+function calcTotals(items, gstRate, discount) {
+  const subtotal  = items.reduce((s, item) => s + (Number(item.qty) * Number(item.rate)), 0);
+  const disc      = Math.round(Number(discount) || 0);
+  const afterDisc = Math.max(0, subtotal - disc);
+  const gst       = Math.round(afterDisc * (gstRate / 100));
+  const total     = afterDisc + gst;
+  return { subtotal, discount: disc, afterDiscount: afterDisc, gst, total };
 }
 
 // ── Reminders ─────────────────────────────────────────────
@@ -384,6 +441,45 @@ function getAllClashes() {
     }
   });
   return clashes.sort(function(a, b) { return a.date.localeCompare(b.date); });
+}
+
+// ── Quote acceptance ──────────────────────────────────────
+// Stores acceptance tokens: key = 'sa_accept_v1', value = { [token]: quoteId }
+const ACCEPT_KEY = 'sa_accept_v1';
+
+function getAcceptTokens() {
+  return Store.get(ACCEPT_KEY) || {};
+}
+
+function createAcceptToken(quoteId) {
+  var tokens = getAcceptTokens();
+  // reuse existing token for same quote
+  var existing = Object.keys(tokens).find(function(t){ return tokens[t] === quoteId; });
+  if (existing) return existing;
+  var token = genId() + genId();
+  tokens[token] = quoteId;
+  Store.set(ACCEPT_KEY, tokens);
+  return token;
+}
+
+function getQuoteByToken(token) {
+  var tokens = getAcceptTokens();
+  var quoteId = tokens[token];
+  if (!quoteId) return null;
+  return getQuoteById(quoteId) || null;
+}
+
+function markQuoteAccepted(token) {
+  var tokens = getAcceptTokens();
+  var quoteId = tokens[token];
+  if (!quoteId) return false;
+  var q = getQuoteById(quoteId);
+  if (!q) return false;
+  q.status = 'accepted';
+  q.acceptedAt = Date.now();
+  q.acceptToken = token;
+  saveQuote(q);
+  return true;
 }
 
 // ── Theme ──────────────────────────────────────────────────

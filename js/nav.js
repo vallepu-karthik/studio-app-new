@@ -12,6 +12,7 @@ function renderNav(activePage, basePath) {
     { id:'quotes',    label:'Quotations', href: b + 'pages/quotes.html',   dot:'#378ADD' },
     { id:'invoices',  label:'Invoices',   href: b + 'pages/invoices.html', dot:'#BA7517' },
     { id:'clients',   label:'Clients',    href: b + 'pages/clients.html',  dot:'#1D9E75' },
+    { id:'reports',   label:'Reports',    href: b + 'pages/reports.html',  dot:'#7C3AED' },
     { id:'settings',  label:'Settings',   href: b + 'pages/settings.html', dot:'#888780' },
   ];
 
@@ -45,9 +46,13 @@ function renderNav(activePage, basePath) {
     '<ul class="nav-list">' + items + '</ul>' +
     '<div class="sidebar-footer">' +
       '<span id="trial-footer"></span>' +
-      '<button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme">' +
-        (isDark ? '☀' : '☾') +
-      '</button>' +
+      '<div style="display:flex;gap:6px;align-items:center">' +
+        '<button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme">' +
+          (isDark ? '☀' : '☾') +
+        '</button>' +
+        (typeof signOutAndRedirect === "function" ?
+          '<button class="theme-toggle" onclick="signOutAndRedirect(\'' + b + '\')" title="Sign out" style="font-size:14px">⏻</button>' : '') +
+      '</div>' +
     '</div>';
 
   var d      = getTrialData();

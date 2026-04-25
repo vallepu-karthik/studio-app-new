@@ -53,7 +53,21 @@
       <!-- Limit banner -->
       <div class="limit-banner" id="limit-banner"></div>
 
-      <!-- Reminder strip -->
+      <!-- Global search -->
+      <div style="position:relative;margin-bottom:1.25rem" id="search-wrap">
+        <input type="text" id="global-search" placeholder="Search quotes, invoices, clients..."
+          autocomplete="off"
+          oninput="onSearch(this.value)"
+          onfocus="onSearch(this.value)"
+          style="padding-left:36px;font-size:13px"
+        >
+        <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none;color:#aaa">🔍</span>
+        <div id="search-results" style="
+          display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;
+          background:#fff;border:1px solid #e5e5e5;border-radius:10px;
+          box-shadow:0 8px 24px rgba(0,0,0,.1);z-index:200;max-height:320px;overflow-y:auto
+        "></div>
+      </div>
       <div id="reminder-strip"></div>
 
       <!-- Page header -->
@@ -146,15 +160,226 @@
 <!-- Toast -->
 <div id="toast"></div>
 
+<!-- Onboarding modal -->
+<div id="onboarding-modal" style="
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);
+  z-index:500;align-items:center;justify-content:center;padding:1rem
+">
+  <div style="background:#fff;border-radius:20px;padding:2rem;max-width:440px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,.2)">
+    <div id="ob-step-1">
+      <div style="font-size:32px;margin-bottom:.75rem">📸</div>
+      <h2 style="font-size:20px;font-weight:700;margin-bottom:.35rem">Welcome to Studio App</h2>
+      <p style="font-size:13px;color:#666;margin-bottom:1.5rem">Let's get your studio set up in 3 quick steps.</p>
+      <div style="display:flex;gap:6px;margin-bottom:1.5rem">
+        <div style="height:3px;flex:1;background:#1a1a1a;border-radius:2px"></div>
+        <div style="height:3px;flex:1;background:#e5e5e5;border-radius:2px"></div>
+        <div style="height:3px;flex:1;background:#e5e5e5;border-radius:2px"></div>
+      </div>
+      <div style="margin-bottom:1rem">
+        <label style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Studio name</label>
+        <input type="text" id="ob-name" placeholder="Lens & Light Studio" style="width:100%;padding:10px 12px;font-size:14px;border:1px solid #d0d0d0;border-radius:8px;font-family:inherit">
+      </div>
+      <div style="margin-bottom:1.5rem">
+        <label style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Tagline <span style="font-weight:400;color:#aaa">(optional)</span></label>
+        <input type="text" id="ob-tagline" placeholder="Capturing moments forever" style="width:100%;padding:10px 12px;font-size:14px;border:1px solid #d0d0d0;border-radius:8px;font-family:inherit">
+      </div>
+      <button onclick="obNext(1)" style="width:100%;padding:12px;font-size:14px;font-weight:600;background:#1a1a1a;color:#fff;border:none;border-radius:10px;cursor:pointer">Continue →</button>
+    </div>
+
+    <div id="ob-step-2" style="display:none">
+      <div style="font-size:32px;margin-bottom:.75rem">📞</div>
+      <h2 style="font-size:20px;font-weight:700;margin-bottom:.35rem">Contact details</h2>
+      <p style="font-size:13px;color:#666;margin-bottom:1.5rem">These appear on all your quotes and invoices.</p>
+      <div style="display:flex;gap:6px;margin-bottom:1.5rem">
+        <div style="height:3px;flex:1;background:#1a1a1a;border-radius:2px"></div>
+        <div style="height:3px;flex:1;background:#1a1a1a;border-radius:2px"></div>
+        <div style="height:3px;flex:1;background:#e5e5e5;border-radius:2px"></div>
+      </div>
+      <div style="margin-bottom:1rem">
+        <label style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Phone</label>
+        <input type="tel" id="ob-phone" placeholder="+91 98001 12345" style="width:100%;padding:10px 12px;font-size:14px;border:1px solid #d0d0d0;border-radius:8px;font-family:inherit">
+      </div>
+      <div style="margin-bottom:1.5rem">
+        <label style="font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Email <span style="font-weight:400;color:#aaa">(optional)</span></label>
+        <input type="email" id="ob-email" placeholder="hello@yourstudio.in" style="width:100%;padding:10px 12px;font-size:14px;border:1px solid #d0d0d0;border-radius:8px;font-family:inherit">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="obBack(2)" style="flex:1;padding:12px;font-size:14px;font-weight:600;background:#fff;color:#1a1a1a;border:1px solid #d0d0d0;border-radius:10px;cursor:pointer">← Back</button>
+        <button onclick="obNext(2)" style="flex:2;padding:12px;font-size:14px;font-weight:600;background:#1a1a1a;color:#fff;border:none;border-radius:10px;cursor:pointer">Continue →</button>
+      </div>
+    </div>
+
+    <div id="ob-step-3" style="display:none">
+      <div style="font-size:32px;margin-bottom:.75rem">🖼️</div>
+      <h2 style="font-size:20px;font-weight:700;margin-bottom:.35rem">Add your logo</h2>
+      <p style="font-size:13px;color:#666;margin-bottom:1.5rem">Your logo appears on all PDF quotes and invoices.</p>
+      <div style="display:flex;gap:6px;margin-bottom:1.5rem">
+        <div style="height:3px;flex:1;background:#1a1a1a;border-radius:2px"></div>
+        <div style="height:3px;flex:1;background:#1a1a1a;border-radius:2px"></div>
+        <div style="height:3px;flex:1;background:#1a1a1a;border-radius:2px"></div>
+      </div>
+      <div onclick="document.getElementById('ob-logo-input').click()" id="ob-logo-drop" style="
+        border:2px dashed #d0d0d0;border-radius:12px;padding:1.75rem;text-align:center;
+        cursor:pointer;margin-bottom:1.5rem;transition:border-color .15s
+      " onmouseover="this.style.borderColor='#888'" onmouseout="this.style.borderColor='#d0d0d0'">
+        <div id="ob-logo-preview-wrap" style="display:none;margin-bottom:.5rem">
+          <img id="ob-logo-preview" style="height:60px;max-width:160px;object-fit:contain;border-radius:8px">
+        </div>
+        <div id="ob-logo-placeholder">
+          <div style="font-size:24px;margin-bottom:.4rem">+</div>
+          <div style="font-size:13px;color:#555;font-weight:600">Click to upload logo</div>
+          <div style="font-size:11px;color:#aaa;margin-top:3px">PNG or JPG, under 300KB</div>
+        </div>
+        <input type="file" id="ob-logo-input" accept="image/png,image/jpeg" style="display:none" onchange="obHandleLogo(this)">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="obBack(3)" style="flex:1;padding:12px;font-size:14px;font-weight:600;background:#fff;color:#1a1a1a;border:1px solid #d0d0d0;border-radius:10px;cursor:pointer">← Back</button>
+        <button onclick="obFinish()" style="flex:2;padding:12px;font-size:14px;font-weight:600;background:#1a1a1a;color:#fff;border:none;border-radius:10px;cursor:pointer">Done — Let's go 🚀</button>
+      </div>
+      <button onclick="obSkipLogo()" style="width:100%;margin-top:.6rem;padding:8px;font-size:12px;color:#aaa;background:none;border:none;cursor:pointer">Skip for now</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/core.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/auth.js"></script>
 <script src="js/nav.js"></script>
 <script>
+  // ── Global search ────────────────────────────────────────
+  let _searchTimer = null;
+  function onSearch(val) {
+    const results = document.getElementById('search-results');
+    val = val.trim().toLowerCase();
+    if (!val) { results.style.display = 'none'; return; }
+
+    const quotes   = getQuotes();
+    const invoices = getInvoices();
+    const clients  = getClients();
+
+    const hits = [];
+
+    quotes.forEach(q => {
+      if (
+        (q.ref||'').toLowerCase().includes(val) ||
+        (q.clientName||'').toLowerCase().includes(val) ||
+        (q.venue||'').toLowerCase().includes(val)
+      ) hits.push({ type:'Quote', ref: q.ref, label: q.clientName||'—', sub: fmtINR(q.total||0) + ' · ' + (q.status||''), url:'pages/quotes.html?id='+q.id });
+    });
+
+    invoices.forEach(i => {
+      if (
+        (i.ref||'').toLowerCase().includes(val) ||
+        (i.clientName||'').toLowerCase().includes(val)
+      ) hits.push({ type:'Invoice', ref: i.ref, label: i.clientName||'—', sub: fmtINR(i.total||0) + ' · ' + (i.status||''), url:'pages/invoices.html?id='+i.id });
+    });
+
+    clients.forEach(c => {
+      if (
+        (c.name||'').toLowerCase().includes(val) ||
+        (c.contact||'').toLowerCase().includes(val)
+      ) hits.push({ type:'Client', ref: c.name, label: c.contact||'', sub: '', url:'pages/clients.html' });
+    });
+
+    if (hits.length === 0) {
+      results.innerHTML = '<div style="padding:1rem;font-size:13px;color:#aaa;text-align:center">No results</div>';
+    } else {
+      const typeColors = { Quote:'#185fa5', Invoice:'#92400e', Client:'#1d6f42' };
+      results.innerHTML = hits.slice(0,10).map(h => `
+        <a href="${h.url}" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #f0f0f0;text-decoration:none;color:#1a1a1a;transition:background .1s" onmouseover="this.style.background='#f9f9f8'" onmouseout="this.style.background=''">
+          <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:${typeColors[h.type]}20;color:${typeColors[h.type]};white-space:nowrap">${h.type}</span>
+          <span style="font-size:13px;font-weight:600;flex:1">${h.ref}</span>
+          <span style="font-size:12px;color:#555">${h.label}</span>
+          <span style="font-size:11px;color:#aaa;white-space:nowrap">${h.sub}</span>
+        </a>`).join('');
+    }
+    results.style.display = 'block';
+  }
+
+  document.addEventListener('click', function(e) {
+    if (!document.getElementById('search-wrap').contains(e.target)) {
+      document.getElementById('search-results').style.display = 'none';
+    }
+  });
+
+  // ── Onboarding ──────────────────────────────────────────
+  let _obLogo = '';
+
+  function checkOnboarding() {
+    const done = localStorage.getItem('sa_onboarding_done');
+    if (done) return;
+    const s = getSettings();
+    // If studio name is still default and no phone set, show onboarding
+    if (s.studioName === 'Studio App' && !s.phone) {
+      document.getElementById('onboarding-modal').style.display = 'flex';
+    }
+  }
+
+  function obNext(step) {
+    if (step === 1) {
+      const name = document.getElementById('ob-name').value.trim();
+      if (!name) { document.getElementById('ob-name').focus(); return; }
+      document.getElementById('ob-step-1').style.display = 'none';
+      document.getElementById('ob-step-2').style.display = 'block';
+    } else if (step === 2) {
+      document.getElementById('ob-step-2').style.display = 'none';
+      document.getElementById('ob-step-3').style.display = 'block';
+    }
+  }
+
+  function obBack(step) {
+    if (step === 2) {
+      document.getElementById('ob-step-2').style.display = 'none';
+      document.getElementById('ob-step-1').style.display = 'block';
+    } else if (step === 3) {
+      document.getElementById('ob-step-3').style.display = 'none';
+      document.getElementById('ob-step-2').style.display = 'block';
+    }
+  }
+
+  function obHandleLogo(input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 300000) { showToast('Logo must be under 300KB'); return; }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      _obLogo = e.target.result;
+      document.getElementById('ob-logo-preview').src = _obLogo;
+      document.getElementById('ob-logo-preview-wrap').style.display = 'block';
+      document.getElementById('ob-logo-placeholder').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+  }
+
+  function obSkipLogo() { obFinish(); }
+
+  function obFinish() {
+    const s = getSettings();
+    s.studioName = document.getElementById('ob-name').value.trim() || 'Studio App';
+    s.tagline    = document.getElementById('ob-tagline').value.trim();
+    s.phone      = document.getElementById('ob-phone').value.trim();
+    s.email      = document.getElementById('ob-email').value.trim();
+    if (_obLogo) s.logo = _obLogo;
+    saveSettings(s);
+    localStorage.setItem('sa_onboarding_done', '1');
+    document.getElementById('onboarding-modal').style.display = 'none';
+      showToast('Studio set up. Let\'s go!');
+  }
+
+
   // ── Boot ────────────────────────────────────────────────
-  renderNav('dashboard', '');
-  initLimitBanner();
-  loadReminders();
-  loadClashes();
-  loadDashboard();
+  initAuth('').then(ok => {
+    if (!ok) return;
+    autoExpireQuotes();
+    renderNav('dashboard', '');
+    initLimitBanner();
+    loadReminders();
+    loadClashes();
+    loadDashboard();
+    checkOnboarding();
+  });
 
   function loadReminders() {
     const due = getDueReminders();
@@ -306,6 +531,7 @@
       pending:  ['pill-pending',  'Pending'],
       paid:     ['pill-paid',     'Paid'],
       overdue:  ['pill-overdue',  'Overdue'],
+      expired:  ['pill-expired',  'Expired'],
     };
     const [cls, label] = map[status] || ['pill-draft', status];
     return `<span class="pill ${cls}">${label}</span>`;
@@ -318,6 +544,7 @@
       return `<a href="pages/invoices.html?id=${item.id}" class="action-link">Mark paid</a>`;
     } else {
       if (status === 'sent')    return `<a href="pages/quotes.html?id=${item.id}" class="action-link">Convert to invoice</a>`;
+      if (status === 'expired') return `<a href="pages/quotes.html?id=${item.id}" class="action-link">Reopen</a>`;
       if (status === 'draft')   return `<a href="pages/quotes.html?id=${item.id}" class="action-link">Edit</a>`;
       return `<a href="pages/quotes.html?id=${item.id}" class="action-link">View</a>`;
     }

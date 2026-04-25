@@ -86,6 +86,12 @@
     .toggle-slider::before { content:''; position:absolute; width:14px; height:14px; left:3px; top:3px; background:#fff; border-radius:50%; transition:transform .2s; }
     .toggle-wrap input:checked + .toggle-slider { background:#1a1a1a; }
     .toggle-wrap input:checked + .toggle-slider::before { transform:translateX(16px); }
+    .modal-backdrop { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:200; align-items:center; justify-content:center; }
+    .modal-backdrop.open { display:flex; }
+    .modal { background:var(--card); border-radius:16px; padding:1.5rem; width:92%; max-width:560px; max-height:85vh; overflow-y:auto; }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.1rem; }
+    .modal-head h2 { font-size:16px; font-weight:700; }
+    .modal-close { background:none; border:none; font-size:22px; cursor:pointer; color:var(--text3); line-height:1; }
     .from-quote-tag { font-size: 11px; background: #eff6ff; color: #1e40af; border-radius: 6px; padding: 2px 8px; margin-left: 8px; }
 
     /* ── Autocomplete ── */
@@ -205,6 +211,7 @@
               <table class="line-table">
                 <thead><tr>
                   <th class="col-desc">Description</th>
+                  <th class="col-type" style="width:90px">Type</th>
                   <th class="col-qty">Qty</th>
                   <th class="col-rate">Rate (₹)</th>
                   <th class="col-amt">Amount</th>
@@ -311,6 +318,7 @@
 
             <div class="form-actions">
               <button class="btn" onclick="saveInvoiceForm('pending')">Save</button>
+              <button class="btn" onclick="previewInvoice()">Preview invoice</button>
               <button class="btn" onclick="downloadPDF()">Download PDF</button>
               <button class="btn btn-wa" onclick="shareWhatsApp()">Share on WhatsApp</button>
               <button class="btn btn-success" onclick="markPaid()">Mark as paid</button>
@@ -335,7 +343,7 @@
               <hr class="prev-divider">
               <div class="prev-label">Bill to</div>
               <div class="prev-client" id="pv-client">—</div>
-              <div id="pv-event" style="font-size:11px;color:#888;margin-bottom:.6rem;display:none"></div>
+              <div id="pv-event" style="font-size:11px;background:#f0f4ff;border-radius:6px;padding:4px 8px;margin-bottom:.6rem;color:#3c5a8c;font-weight:600;display:none"></div>
               <div class="prev-line head"><span>Item</span><span>Amount</span></div>
               <div id="pv-lines"></div>
               <hr class="prev-divider">
@@ -358,6 +366,9 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="../js/core.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/auth.js"></script>
 <script src="../js/nav.js"></script>
 <script src="../js/pdf.js"></script>
 <script>
@@ -379,12 +390,15 @@ function defaultMilestones(total) {
 }
 
 // ── Boot ─────────────────────────────────────────────────
-renderNav('invoices', '../');
-initLimitBanner();
-const params = new URLSearchParams(window.location.search);
-if (params.get('new') === '1') openForm();
-else if (params.get('id'))     openForm(params.get('id'));
-else                           renderList();
+initAuth('../').then(ok => {
+  if (!ok) return;
+  renderNav('invoices', '../');
+  initLimitBanner();
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('new') === '1') openForm();
+  else if (params.get('id'))     openForm(params.get('id'));
+  else                           renderList();
+});
 
 // ─── LIST ───────────────────────────────────────────────
 function renderList() {
@@ -533,14 +547,21 @@ function closeForm() {
 }
 
 // ─── LINE ITEMS ─────────────────────────────────────────
-function blankLine() { return { desc:'', qty:1, rate:0 }; }
+function blankLine() { return { desc:'', qty:1, rate:0, itemType:'service' }; }
 
 function renderLines() {
-  document.getElementById('line-body').innerHTML = lineItems.map((item, i) => `
-    <tr>
+  document.getElementById('line-body').innerHTML = lineItems.map((item, i) => {
+    const isExp = item.itemType === 'expense';
+    return `<tr>
       <td class="col-desc">
         <input value="${esc(item.desc)}" placeholder="Description"
           oninput="lineItems[${i}].desc=this.value;updatePreview()">
+      </td>
+      <td class="col-type">
+        <select onchange="lineItems[${i}].itemType=this.value;renderLines();updatePreview()" style="padding:5px 6px;font-size:11px;border:1px solid #e5e5e5;border-radius:6px;font-family:inherit;background:${isExp?'#fef9ee':'#f0fdf4'};color:${isExp?'#92400e':'#166534'}">
+          <option value="service" ${!isExp?'selected':''}>Service</option>
+          <option value="expense" ${isExp?'selected':''}>Expense</option>
+        </select>
       </td>
       <td class="col-qty">
         <input type="number" value="${item.qty}" min="1" style="text-align:center"
@@ -554,7 +575,8 @@ function renderLines() {
       <td class="col-del">
         ${lineItems.length > 1 ? `<button class="del-btn" onclick="removeLine(${i})">×</button>` : ''}
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 function addLine()     { lineItems.push(blankLine()); renderLines(); updatePreview(); }
@@ -772,6 +794,249 @@ function deleteCurrentInvoice() {
 }
 
 // ─── WHATSAPP SHARE ─────────────────────────────────────
+function previewInvoice() {
+  if (!currentId && !trackInvoice()) return;
+  const inv = buildInvoice(currentId ? (getInvoiceById(currentId)?.status || 'pending') : 'pending');
+  currentId = inv.id;
+  saveInvoice(inv);
+  document.getElementById('btn-del').style.display = 'inline-flex';
+
+  const s = getSettings();
+  document.getElementById('preview-modal-title').textContent = 'Preview — ' + inv.ref;
+  document.getElementById('preview-modal-body').innerHTML = buildPreviewHTML(inv, s, 'invoice');
+  document.getElementById('preview-modal').classList.add('open');
+}
+
+function closePreviewModal() {
+  document.getElementById('preview-modal').classList.remove('open');
+}
+
+function buildPreviewHTML(doc, settings, type) {
+  const isQuote = type === 'quote';
+  const logo = settings.logo
+    ? `<img src="${settings.logo}" style="height:52px;max-width:100px;object-fit:contain;border-radius:6px">`
+    : `<div style="width:52px;height:52px;background:#e5e5e5;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#aaa">LOGO</div>`;
+
+  const lineRows = (doc.lineItems || []).map(item => {
+    const amt = Math.round((item.qty||1) * (item.rate||0));
+    return `<tr>
+      <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px">${esc(item.desc||'')}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;text-align:center;color:#666">${item.qty||1}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;text-align:right;color:#666">${fmtINR(item.rate||0)}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px;text-align:right;font-weight:600">${fmtINR(amt)}</td>
+    </tr>`;
+  }).join('');
+
+  const gstRate  = doc.gstRate || 0;
+  const subtotal = doc.subtotal || 0;
+  const gst      = doc.gst || 0;
+  const total    = doc.total || 0;
+  const dateField = isQuote ? formatDate(doc.quoteDate) : formatDate(doc.invoiceDate);
+
+  // ── milestone status pills ──
+  const statusPill = (st) => {
+    const map = {
+      collected: ['#dcfce7','#166534','Collected ✅'],
+      pending:   ['#fef9c3','#854d0e','Pending ⏳'],
+      overdue:   ['#fee2e2','#991b1b','Overdue ❗'],
+    };
+    const [bg, col, lbl] = map[st] || map.pending;
+    return `<span style="display:inline-block;padding:2px 8px;border-radius:20px;background:${bg};color:${col};font-size:10px;font-weight:700">${lbl}</span>`;
+  };
+
+  const milestoneRows = !isQuote && (doc.milestones||[]).length > 0
+    ? `<div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #e5e5e5">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:.6rem">Payment Schedule</div>
+        ${(doc.milestones||[]).map(m => `
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:5px 0;border-bottom:1px solid #f5f5f5">
+            <span style="color:#444;flex:1">${esc(m.label||'')}${m.dueDate ? ' — ' + formatDate(m.dueDate) : ''}</span>
+            <span style="font-weight:700;margin:0 12px">${fmtINR(m.amount||0)}</span>
+            ${statusPill(m.status||'pending')}
+          </div>`).join('')}
+      </div>` : '';
+
+  // ── collected / pending totals ──
+  const collected = (doc.milestones||[]).filter(m=>m.status==='collected').reduce((s,m)=>s+(m.amount||0),0);
+  const pending   = Math.max(0, total - collected);
+
+  // ── social buttons ──
+  const socialBtns = (settings.instagram || settings.website || settings.youtube || settings.facebook) ? `
+  <div style="margin-top:.85rem;padding-top:.75rem;border-top:1px solid #e5e5e5;display:flex;flex-wrap:wrap;gap:8px">
+    ${settings.instagram ? `<a href="https://instagram.com/${settings.instagram.replace('@','')}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);color:#fff;font-size:11px;font-weight:600;text-decoration:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>${esc(settings.instagram)}</a>` : ''}
+    ${settings.website ? `<a href="${settings.website.startsWith('http')?settings.website:'https://'+settings.website}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:#1865f2;color:#fff;font-size:11px;font-weight:600;text-decoration:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>${esc(settings.website)}</a>` : ''}
+    ${settings.youtube ? `<a href="${settings.youtube.startsWith('http')?settings.youtube:'https://'+settings.youtube}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:#ff0000;color:#fff;font-size:11px;font-weight:600;text-decoration:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M23.495 6.205a3.007 3.007 0 0 0-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 0 0 .527 6.205a31.247 31.247 0 0 0-.522 5.805 31.247 31.247 0 0 0 .522 5.783 3.007 3.007 0 0 0 2.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 0 0 2.088-2.088 31.247 31.247 0 0 0 .5-5.783 31.247 31.247 0 0 0-.5-5.805zM9.609 15.601V8.408l6.264 3.602z"/></svg>${esc(settings.youtube)}</a>` : ''}
+    ${settings.facebook ? `<a href="${settings.facebook.startsWith('http')?settings.facebook:'https://'+settings.facebook}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:#1877f2;color:#fff;font-size:11px;font-weight:600;text-decoration:none"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>${esc(settings.facebook)}</a>` : ''}
+  </div>` : '';
+
+  // ── contact bar ──
+  const contactBar = (settings.phone || settings.email) ? `
+  <div style="margin-top:.5rem;display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:#555">
+    ${settings.phone ? `<span>📞 ${esc(settings.phone)}</span>` : ''}
+    ${settings.email ? `<span>✉️ ${esc(settings.email)}</span>` : ''}
+  </div>` : '';
+
+  // ── google review ──
+  const reviewBlock = settings.googleReviewLink ? `
+  <div style="margin-top:.85rem;padding:.75rem 1rem;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;text-align:center">
+    <div style="font-size:13px;font-weight:700;margin-bottom:.3rem">⭐ Enjoyed our work?</div>
+    <div style="font-size:12px;color:#555;margin-bottom:.35rem">We'd love your feedback — leave us a Google review!</div>
+    <a href="${settings.googleReviewLink}" target="_blank" style="font-size:12px;color:#1e40af;text-decoration:none;font-weight:600">Click here to review us →</a>
+  </div>` : '';
+
+  // ── single signature block (bottom) ──
+  const signatureBlock = settings.signature
+    ? `<div style="display:flex;justify-content:flex-end;margin-top:1rem">
+        <div style="text-align:right">
+          <img src="${settings.signature}" style="height:50px;max-width:130px;object-fit:contain;display:block;margin-left:auto">
+          <div style="font-size:11px;color:#888;margin-top:4px">Authorized Signatory</div>
+          <div style="font-size:11px;color:#555;font-weight:600">${esc(settings.studioName||'')}</div>
+        </div>
+      </div>`
+    : `<div style="margin-top:1rem;text-align:right">
+        <div style="font-size:11px;color:#888">Authorized Signatory</div>
+        <div style="font-size:11px;color:#555;font-weight:600">${esc(settings.studioName||'')}</div>
+      </div>`;
+
+  return `
+  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;color:#1a1a1a">
+
+    <!-- ① HEADER: INVOICE / ref / date / logo -->
+    <div style="background:#2d4650;padding:1.25rem 1.5rem;display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div style="color:#d4b464;font-size:22px;font-weight:800;margin-bottom:.5rem">${isQuote ? 'QUOTATION' : 'INVOICE'}</div>
+        <div style="color:#d4b464;font-size:11px;margin-bottom:2px">${isQuote ? 'Quotation' : 'Invoice'} Number</div>
+        <div style="color:#fff;font-size:13px;font-weight:600;margin-bottom:.4rem">${esc(doc.ref||'')}</div>
+        <div style="color:#d4b464;font-size:11px;margin-bottom:2px">Date</div>
+        <div style="color:#fff;font-size:13px">${dateField}</div>
+      </div>
+      <div>${logo}</div>
+    </div>
+
+    <div style="padding:1.25rem 1.5rem">
+
+      <!-- ② Bill To / Bill From -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.25rem">
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:.35rem">${isQuote ? 'Quotation to' : 'Bill to'}</div>
+          <div style="font-size:16px;font-weight:800">${esc(doc.clientName||'—')}</div>
+          ${doc.clientContact ? `<div style="font-size:12px;color:#666;margin-top:2px">${esc(doc.clientContact)}</div>` : ''}
+          ${!isQuote && doc.dueDate ? `<div style="font-size:12px;color:#888;margin-top:4px">Due: ${formatDate(doc.dueDate)}</div>` : ''}
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#888;margin-bottom:.35rem">${isQuote ? 'Quotation from' : 'Bill from'}</div>
+          <div style="font-size:16px;font-weight:800">${esc(settings.studioName||'Studio App')}</div>
+          ${settings.phone ? `<div style="font-size:12px;color:#666;margin-top:2px">${esc(settings.phone)}</div>` : ''}
+          ${settings.email ? `<div style="font-size:12px;color:#666">${esc(settings.email)}</div>` : ''}
+          ${settings.gstin ? `<div style="font-size:11px;color:#aaa;margin-top:2px">GSTIN: ${esc(settings.gstin)}</div>` : ''}
+        </div>
+      </div>
+
+      <!-- ③ Line Items Table -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:.5rem">
+        <thead>
+          <tr style="background:#f0f0ee">
+            <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#555">Description</th>
+            <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#555">Qty</th>
+            <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#555">Rate</th>
+            <th style="padding:8px 10px;text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#555">Amount</th>
+          </tr>
+        </thead>
+        <tbody>${lineRows}</tbody>
+      </table>
+
+      <!-- ④ Sub Total → Grand Total -->
+      <div style="display:flex;justify-content:flex-end;margin-bottom:1rem">
+        <div style="min-width:220px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:#666"><span>Sub Total</span><span>${fmtINR(subtotal)}</span></div>
+          ${gstRate>0 ? `<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:#666"><span>GST (${gstRate}%)</span><span>${fmtINR(gst)}</span></div>` : ''}
+          <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;padding:8px 0 4px;border-top:2px solid #1a1a1a;margin-top:4px"><span>Grand Total</span><span>${fmtINR(total)}</span></div>
+        </div>
+      </div>
+
+      <!-- ⑤ Payment Schedule with status pills -->
+      ${milestoneRows}
+
+      <!-- ⑥ Event Date block -->
+      ${doc.eventDate ? `
+      <div style="margin-top:1rem;background:#f0f4ff;border:1px solid #c7d4f5;border-radius:8px;padding:.6rem 1rem;display:flex;align-items:center;gap:.75rem">
+        <div style="font-size:18px">🗓</div>
+        <div>
+          <div style="font-size:10px;font-weight:800;color:#3c5a8c;text-transform:uppercase;letter-spacing:.04em">Event Date</div>
+          <div style="font-size:13px;font-weight:600;color:#1a1a1a;margin-top:1px">${formatDate(doc.eventDate)}${doc.venue ? ' &nbsp;|&nbsp; <span style="font-weight:400;color:#555">'+esc(doc.venue)+'</span>' : ''}</div>
+        </div>
+      </div>` : ''}
+
+      <!-- ⑦ Payment Note -->
+      <div style="margin-top:.85rem;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:.75rem 1rem">
+        <div style="font-size:10px;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.35rem">💳 Payment Note</div>
+        <div style="font-size:12px;color:#78350f;font-weight:500">Kindly clear the due amount upon receipt of this invoice.</div>
+        <div style="font-size:11px;color:#92400e;margin-top:3px">We appreciate your prompt payment. For queries, please contact us.</div>
+      </div>
+
+      <!-- ⑧ Payment Details (LEFT) | Totals + Signature (RIGHT) -->
+      ${(settings.bankName || settings.upiId || settings.phonePay || settings.phone) ? `
+      <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid #e5e5e5;display:grid;grid-template-columns:1fr auto;gap:1.5rem;align-items:start">
+        <!-- LEFT: Payment Details -->
+        <div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:.5rem">Payment Details</div>
+          ${settings.bankName ? `<div style="font-size:12px;color:#555">Bank: ${esc(settings.bankName)}</div>` : ''}
+          ${settings.accountName ? `<div style="font-size:12px;color:#555">A/C: ${esc(settings.accountName)}</div>` : ''}
+          ${settings.accountNumber ? `<div style="font-size:12px;color:#555">A/C No: ${esc(settings.accountNumber)}</div>` : ''}
+          ${settings.ifscCode ? `<div style="font-size:12px;color:#555">IFSC: ${esc(settings.ifscCode)}</div>` : ''}
+          ${settings.upiId ? `<div style="font-size:12px;color:#555">UPI: ${esc(settings.upiId)}</div>` : ''}
+          ${settings.phonePay ? `<div style="font-size:12px;color:#555">PhonePe: ${esc(settings.phonePay)}</div>` : ''}
+          ${settings.googlePay ? `<div style="font-size:12px;color:#555">GPay: ${esc(settings.googlePay)}</div>` : ''}
+          ${!settings.bankName && !settings.upiId ? `<div style="font-size:12px;color:#555">${esc(settings.phone||'')}</div>` : ''}
+        </div>
+        <!-- RIGHT: Grand Total + Collected + Pending + divider + Signature -->
+        <div style="text-align:right;min-width:200px">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:#555;padding:3px 0;gap:16px"><span>Grand Total</span><span style="font-weight:600">${fmtINR(total)}</span></div>
+          ${collected > 0 ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#1d6f42;padding:3px 0;gap:16px"><span>Total Collected ✅</span><span style="font-weight:600">${fmtINR(collected)}</span></div>` : ''}
+          <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:800;padding:7px 0 4px;border-top:2px solid #1a1a1a;margin-top:4px;gap:16px"><span>Total Pending Due (INR)</span><span>${fmtINR(pending)}</span></div>
+          <div style="border-top:1px solid #e5e5e5;margin:10px 0"></div>
+          ${settings.signature ? `<img src="${settings.signature}" style="height:48px;max-width:130px;object-fit:contain;display:block;margin-left:auto">` : ''}
+          <div style="font-size:11px;color:#888;margin-top:4px">Authorized Signatory</div>
+        </div>
+      </div>` : `
+      <!-- No bank details: show totals row spanning full width -->
+      <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid #e5e5e5">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:#555;padding:3px 0"><span>Grand Total</span><span style="font-weight:600">${fmtINR(total)}</span></div>
+        ${collected > 0 ? `<div style="display:flex;justify-content:space-between;font-size:12px;color:#1d6f42;padding:3px 0"><span>Total Collected ✅</span><span style="font-weight:600">${fmtINR(collected)}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:800;padding:7px 0 4px;border-top:2px solid #1a1a1a;margin-top:4px"><span>Total Pending Due (INR)</span><span>${fmtINR(pending)}</span></div>
+      </div>`}
+
+      <!-- ⑨ Social Media Buttons -->
+      ${socialBtns}
+
+      <!-- ⑩ Contact Bar -->
+      ${contactBar}
+
+      <!-- ⑪ Google Review Link -->
+      ${reviewBlock}
+
+      <!-- ⑫ Signature (ONE, at the very bottom) -->
+      ${(settings.bankName || settings.upiId || settings.phonePay || settings.phone) ? '' : signatureBlock}
+      ${(!(settings.bankName || settings.upiId || settings.phonePay || settings.phone)) ? '' : `
+      <div style="margin-top:1rem;display:flex;justify-content:flex-end">
+        <div style="text-align:right">
+          ${settings.signature ? `<img src="${settings.signature}" style="height:50px;max-width:130px;object-fit:contain;display:block;margin-left:auto">` : ''}
+          <div style="font-size:11px;color:#888;margin-top:4px">Authorized Signatory</div>
+          <div style="font-size:11px;color:#555;font-weight:600">${esc(settings.studioName||'')}</div>
+        </div>
+      </div>`}
+
+      ${doc.notes ? `<div style="margin-top:1rem;font-size:12px;color:#666;padding:.75rem;background:#f9f9f8;border-radius:8px">${esc(doc.notes)}</div>` : ''}
+    </div>
+
+    <!-- ⑬ Footer -->
+    <div style="background:#f5f5f4;padding:.65rem 1.5rem;font-size:11px;color:#aaa;display:flex;justify-content:space-between">
+      <span>${isQuote ? 'Quotation' : 'Invoice'} No ${esc(doc.ref||'')}</span>
+      <span>${dateField}</span>
+      <span>${esc(doc.clientName||'')}</span>
+    </div>
+  </div>`;
+}
+
 function downloadPDF() {
   if (!currentId && !trackInvoice()) return;
   const inv = buildInvoice(currentId ? (getInvoiceById(currentId)?.status || 'pending') : 'pending');
@@ -822,5 +1087,19 @@ function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 }
 </script>
+<!-- Preview Modal -->
+<div class="modal-backdrop" id="preview-modal" style="z-index:300;align-items:flex-start;padding:1.5rem;overflow-y:auto">
+  <div class="modal" style="max-width:700px;width:100%;max-height:none">
+    <div class="modal-head">
+      <h2 id="preview-modal-title">Preview invoice</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-sm" onclick="downloadPDF()">Download PDF</button>
+        <button class="modal-close" onclick="closePreviewModal()">×</button>
+      </div>
+    </div>
+    <div id="preview-modal-body" style="border:1px solid var(--border);border-radius:8px;overflow:hidden"></div>
+  </div>
+</div>
+
 </body>
 </html>
