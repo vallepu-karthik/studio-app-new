@@ -53,124 +53,31 @@ function hline(doc,y,col,lw){
 }
 
 /* ══════════════════════════════════════════════════════
-   IMAGE UTILITIES
+   IMAGE COMPRESSION
 ══════════════════════════════════════════════════════ */
-
-/**
- * Detect image format from a data URL header.
- * Returns 'PNG', 'JPEG', 'WEBP', or 'JPEG' as safe default.
- */
-function detectImgFormat(dataUrl) {
-  if (!dataUrl || typeof dataUrl !== 'string') return 'JPEG';
-  if (dataUrl.indexOf('data:image/png')  === 0) return 'PNG';
-  if (dataUrl.indexOf('data:image/webp') === 0) return 'WEBP';
-  if (dataUrl.indexOf('data:image/gif')  === 0) return 'JPEG'; // convert GIF → JPEG via canvas
-  return 'JPEG';
-}
-
-/**
- * Compress an image to fit within maxW×maxH.
- * - PNG inputs are re-exported as PNG (preserves transparency for signatures).
- * - JPEG/WEBP/other inputs are re-exported as JPEG for smaller file size.
- * Always calls callback(resultDataUrl, format) — never leaves caller hanging.
- */
 function compressImage(base64, maxW, maxH, quality, callback) {
-  // Timeout safety — if Image never fires (bad data), fall back after 3 s
-  var settled = false;
-  function settle(result, fmt) {
-    if (settled) return;
-    settled = true;
-    callback(result, fmt || detectImgFormat(result));
-  }
-  var timer = setTimeout(function(){ settle(base64, detectImgFormat(base64)); }, 3000);
-
   try {
-    var isPng   = base64.indexOf('data:image/png') === 0;
-    var mimeOut = isPng ? 'image/png' : 'image/jpeg';
-    var fmtOut  = isPng ? 'PNG' : 'JPEG';
-
     var img = new Image();
     img.onload = function() {
-      clearTimeout(timer);
-      try {
-        var scale = Math.min(1, maxW / img.width, maxH / img.height);
-        var cw = Math.max(1, Math.round(img.width  * scale));
-        var ch = Math.max(1, Math.round(img.height * scale));
-        var canvas = document.createElement('canvas');
-        canvas.width  = cw;
-        canvas.height = ch;
-        var ctx = canvas.getContext('2d');
-        if (!isPng) {
-          // Fill white background for JPEG (no transparency)
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, cw, ch);
-        }
-        ctx.drawImage(img, 0, 0, cw, ch);
-        settle(canvas.toDataURL(mimeOut, isPng ? 1.0 : (quality || 0.5)), fmtOut);
-      } catch(e) {
-        clearTimeout(timer);
-        settle(base64, detectImgFormat(base64));
-      }
+      var scale = Math.min(1, maxW/img.width, maxH/img.height);
+      var cw = Math.round(img.width*scale), ch = Math.round(img.height*scale);
+      var canvas = document.createElement('canvas');
+      canvas.width=cw; canvas.height=ch;
+      canvas.getContext('2d').drawImage(img,0,0,cw,ch);
+      callback(canvas.toDataURL('image/jpeg', quality||0.5));
     };
-    img.onerror = function() {
-      clearTimeout(timer);
-      settle(base64, detectImgFormat(base64));
-    };
+    img.onerror = function(){ callback(base64); };
     img.src = base64;
-  } catch(e) {
-    clearTimeout(timer);
-    settle(base64, detectImgFormat(base64));
-  }
+  } catch(e){ callback(base64); }
 }
 
-/**
- * Safely add an image to jsPDF — auto-detects format from data URL.
- * Wraps addImage in try/catch so a bad image never crashes the whole PDF.
- */
-function safeAddImage(doc, dataUrl, x, y, w, h) {
-  if (!dataUrl) return false;
-  try {
-    var fmt = detectImgFormat(dataUrl);
-    doc.addImage(dataUrl, fmt, x, y, w, h);
-    return true;
-  } catch(e) {
-    console.warn('[pdf.js] safeAddImage failed:', e.message || e);
-    return false;
-  }
-}
-
-/**
- * Prepare logo + signature for PDF use.
- * Compresses both if present, then fires callback(settings).
- * settings._logo / settings._sig are set; settings._logoFmt / settings._sigFmt hold format strings.
- */
 function prepareImages(settings, callback) {
-  var logo = settings.logo;
-  var sig  = settings.signature;
-  var done = 0;
-  var total = (logo ? 1 : 0) + (sig ? 1 : 0);
-
-  if (!total) { callback(settings); return; }
-
-  function check() {
-    done++;
-    if (done === total) callback(settings);
-  }
-
-  if (logo) {
-    compressImage(logo, 200, 120, 0.5, function(out, fmt) {
-      settings._logo    = out;
-      settings._logoFmt = fmt;
-      check();
-    });
-  }
-  if (sig) {
-    compressImage(sig, 200, 80, 0.6, function(out, fmt) {
-      settings._sig    = out;
-      settings._sigFmt = fmt;
-      check();
-    });
-  }
+  var logo = settings.logo, sig = settings.signature;
+  var done = 0, total = (logo?1:0)+(sig?1:0);
+  if (!total){ callback(settings); return; }
+  function check(){ if(++done===total) callback(settings); }
+  if(logo) compressImage(logo,  200,120,0.5,function(o){ settings._logo=o; check(); });
+  if(sig)  compressImage(sig,   200, 80,0.6,function(o){ settings._sig =o; check(); });
 }
 
 /* ══════════════════════════════════════════════════════
@@ -194,9 +101,8 @@ function drawHeader(doc, s, ref, dateStr, docType) {
   var bx=PW-MR-32, by=4, bw=32, bh=36;
   var logoData = s._logo || s.logo;
   if(logoData){
-    var drawn = safeAddImage(doc, logoData, bx, by, bw, bh);
-    if (!drawn) {
-      // Fallback: draw a labelled white box
+    try{ doc.addImage(logoData,'JPEG',bx,by,bw,bh); }
+    catch(e){
       sf(doc,WHITE); sd(doc,WHITE); doc.roundedRect(bx,by,bw,bh,2,2,'FD');
       normal(doc); doc.setFontSize(7); st(doc,MUTED);
       doc.text((s.studioName||'LOGO').slice(0,10).toUpperCase(), bx+bw/2, by+bh/2,{align:'center',baseline:'middle'});
@@ -401,11 +307,11 @@ function drawBottomSection(doc, s, invoice, grandTotal, isInvoice, y) {
   hline(doc, ry, LIGHT, 0.3); ry+=6;
 
   /* Signature image */
-  var sigData = s._sig || s.signature;
+  var sigData = s._sig||s.signature;
   if(sigData){
-    var sigDrawn = safeAddImage(doc, sigData, rx-42, ry, 42, 20);
-    if (sigDrawn) ry += 22; else ry += 4;
-  } else { ry += 4; }
+    try{ doc.addImage(sigData,'JPEG', rx-42, ry, 42, 20); ry+=22; }
+    catch(e){ ry+=4; }
+  } else { ry+=4; }
 
   normal(doc); doc.setFontSize(8); st(doc,MUTED);
   right(doc,'Authorized Signatory', rx, ry);
@@ -513,19 +419,10 @@ function drawTermsPage(doc, s, ref, dateStr, clientName) {
 
 /* ══════════════════════════════════════════════════════
    GENERATE QUOTE PDF
-   @param {object}   quote
-   @param {function} [onError] - called with (err) if generation fails
 ══════════════════════════════════════════════════════ */
-function generateQuotePDF(quote, onError) {
-  var s = getSettings();
-  prepareImages(s, function(s) {
-    try {
-      _genQuote(quote, s);
-    } catch(err) {
-      console.error('[generateQuotePDF] Error during PDF build:', err);
-      if (typeof onError === 'function') onError(err);
-    }
-  });
+function generateQuotePDF(quote) {
+  var s=getSettings();
+  prepareImages(s, function(s){ _genQuote(quote,s); });
 }
 
 function _genQuote(quote, s) {
@@ -559,19 +456,10 @@ function _genQuote(quote, s) {
 
 /* ══════════════════════════════════════════════════════
    GENERATE INVOICE PDF
-   @param {object}   invoice
-   @param {function} [onError] - called with (err) if generation fails
 ══════════════════════════════════════════════════════ */
-function generateInvoicePDF(invoice, onError) {
-  var s = getSettings();
-  prepareImages(s, function(s) {
-    try {
-      _genInvoice(invoice, s);
-    } catch(err) {
-      console.error('[generateInvoicePDF] Error during PDF build:', err);
-      if (typeof onError === 'function') onError(err);
-    }
-  });
+function generateInvoicePDF(invoice) {
+  var s=getSettings();
+  prepareImages(s, function(s){ _genInvoice(invoice,s); });
 }
 
 function _genInvoice(invoice, s) {

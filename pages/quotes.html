@@ -877,7 +877,7 @@ function closePreviewModal() {
 
 function downloadPDF() {
   // Guard: ensure jsPDF is loaded before attempting PDF generation
-  if (typeof jspdf === 'undefined' || !jspdf.jsPDF) {
+  if (typeof jspdf === 'undefined' || typeof jspdf.jsPDF !== 'function') {
     showToast('PDF library is still loading — please try again in a moment.');
     return;
   }
@@ -885,18 +885,16 @@ function downloadPDF() {
   if (!currentId && !trackQuote()) return;
   const q = buildQuote(currentId ? (getQuoteById(currentId)?.status || 'draft') : 'draft');
   currentId = q.id;
-  try {
-    saveQuote(q);
-  } catch (e) {
-    console.error('[downloadPDF] Could not save quote before PDF:', e);
+  try { saveQuote(q); } catch(e) {
+    console.error('[downloadPDF] saveQuote failed:', e);
   }
   document.getElementById('btn-del').style.display = 'inline-flex';
-  try {
-    generateQuotePDF(q);
-  } catch (err) {
-    console.error('[downloadPDF] PDF generation error:', err);
-    showToast('PDF generation failed — check console for details.');
-  }
+
+  // Pass an onError callback — errors inside prepareImages async chain
+  // are invisible to try/catch, so they must be handled via callback
+  generateQuotePDF(q, function(err) {
+    showToast('PDF generation failed: ' + (err && err.message ? err.message : 'Unknown error. Check console.'));
+  });
 }
 
 function shareWhatsApp() {

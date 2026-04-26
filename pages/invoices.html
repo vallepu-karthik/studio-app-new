@@ -1074,12 +1074,21 @@ function buildPreviewHTML(doc, settings, type) {
 }
 
 function downloadPDF() {
+  // Guard: ensure jsPDF is loaded
+  if (typeof jspdf === 'undefined' || typeof jspdf.jsPDF !== 'function') {
+    showToast('PDF library is still loading — please try again in a moment.');
+    return;
+  }
   if (!currentId && !trackInvoice()) return;
   const inv = buildInvoice(currentId ? (getInvoiceById(currentId)?.status || 'pending') : 'pending');
   currentId = inv.id;
-  saveInvoice(inv);
+  try { saveInvoice(inv); } catch(e) {
+    console.error('[downloadPDF] saveInvoice failed:', e);
+  }
   document.getElementById('btn-del').style.display = 'inline-flex';
-  generateInvoicePDF(inv);
+  generateInvoicePDF(inv, function(err) {
+    showToast('PDF generation failed: ' + (err && err.message ? err.message : 'Unknown error. Check console.'));
+  });
 }
 
 function shareWhatsApp() {
