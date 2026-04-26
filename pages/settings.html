@@ -94,7 +94,7 @@
               <input type="tel" id="phone" placeholder="+91 98001 12345">
             </div>
             <div class="form-group">
-              <label>Email</label>
+              <label>Email <span style="font-size:11px;font-weight:400;color:#639922;margin-left:4px">&#x2713; used for quote-accepted notifications</span></label>
               <input type="email" id="email" placeholder="hello@yourstudio.in">
             </div>
             <div class="form-group">
@@ -336,6 +336,7 @@
 
 <div id="toast"></div>
 <script src="../js/core.js"></script>
+  <script src="../js/sync.js"></script>
   <script src="../js/env.js"></script>
   <script src="../js/sanitize.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -347,6 +348,7 @@
     if (!ok) return;
     renderNav('settings', '../');
   initOfflineDetector();
+    window.__syncRefresh = typeof loadSettings === \'function\' ? loadSettings : null;
     initLimitBanner();
     loadSettings();
     renderSettingsPkgs();
