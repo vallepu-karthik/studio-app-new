@@ -136,18 +136,34 @@ function _patchDeleteInvoice() {
 }
 
 function _patchSaveClient() {
-  const _orig = window.saveClient;
-  window.saveClient = function(client) {
-    _orig(client);
-    if (_userId) sbSaveClient(_userId, client).catch(e => console.warn('[Studio] saveClient sync:', e.message));
+  // core.js exposes upsertClient(data), not saveClient — patch the real function.
+  const _orig = window.upsertClient;
+  window.upsertClient = function(clientData) {
+    _orig(clientData);
+    // Re-fetch the stored client (with its id) and sync to Supabase.
+    if (_userId) {
+      const clients = typeof getClients === 'function' ? getClients() : [];
+      const stored = clients.find(c => c.name && clientData.name &&
+        c.name.toLowerCase() === clientData.name.toLowerCase());
+      if (stored) sbSaveClient(_userId, stored).catch(e => console.warn('[Studio] upsertClient sync:', e.message));
+    }
   };
 }
 
 function _patchDeleteClient() {
-  const _orig = window.deleteClient;
-  window.deleteClient = function(id) {
-    _orig(id);
-    if (_userId) sbDeleteClient(_userId, id).catch(e => console.warn('[Studio] deleteClient sync:', e.message));
+  // core.js has no standalone deleteClient — deletions go through saveClients(arr).
+  // We reconstruct the deleted id by comparing before/after the array write.
+  const _origSaveClients = window.saveClients;
+  window.saveClients = function(arr) {
+    const before = typeof getClients === 'function' ? getClients().map(c => c.id) : [];
+    _origSaveClients(arr);
+    if (_userId) {
+      const afterIds = arr.map(c => c.id);
+      const deletedIds = before.filter(id => !afterIds.includes(id));
+      deletedIds.forEach(id =>
+        sbDeleteClient(_userId, id).catch(e => console.warn('[Studio] deleteClient sync:', e.message))
+      );
+    }
   };
 }
 
