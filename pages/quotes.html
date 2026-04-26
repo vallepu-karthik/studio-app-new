@@ -122,8 +122,18 @@
       .form-right { position: static; }
     }
   </style>
+  <script>
+    /* Anti-FOUC: apply theme before first paint to prevent light flash */
+    (function() {
+      try {
+        var s = JSON.parse(localStorage.getItem('sa_settings_v1') || '{}');
+        if (s.theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
+<div id="offline-banner">You're offline &mdash; changes are saved locally and will sync when reconnected.</div>
 <div class="app-shell">
   <aside class="sidebar" id="sidebar"></aside>
   <main class="main-area">
@@ -141,6 +151,7 @@
           <button class="filter-tab"        data-filter="draft"    onclick="setFilter(this,'draft')">Draft</button>
           <button class="filter-tab"        data-filter="sent"     onclick="setFilter(this,'sent')">Sent</button>
           <button class="filter-tab"        data-filter="accepted" onclick="setFilter(this,'accepted')">Accepted</button>
+          <button class="filter-tab"        data-filter="expired"  onclick="setFilter(this,'expired')">Expired</button>
         </div>
         <div class="card">
           <div id="list-empty" class="empty-state" style="display:none">
@@ -173,6 +184,15 @@
             <button class="btn btn-sm" onclick="saveDraft()">Save draft</button>
             <button class="btn btn-sm btn-primary" onclick="sendQuote()">Mark as sent</button>
           </div>
+        </div>
+
+        <!-- Expired banner -->
+        <div id="expired-banner" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:10px;padding:.85rem 1rem;margin-bottom:1rem;display:none;align-items:center;justify-content:space-between;gap:1rem">
+          <div>
+            <span style="font-size:13px;font-weight:600;color:#9b1c1c">&#9888; This quote has expired</span>
+            <span style="font-size:12px;color:#b91c1c;margin-left:.5rem">Valid-until date has passed</span>
+          </div>
+          <button class="btn btn-sm" onclick="reopenQuote()" style="border-color:#fca5a5;color:#9b1c1c;white-space:nowrap">Reopen +14 days</button>
         </div>
 
         <div class="form-cols">
@@ -236,6 +256,7 @@
               <table class="line-table">
                 <thead><tr>
                   <th class="col-desc">Description</th>
+                  <th class="col-type" style="width:90px">Type</th>
                   <th class="col-qty">Qty</th>
                   <th class="col-rate">Rate (₹)</th>
                   <th class="col-amt">Amount</th>
@@ -254,24 +275,17 @@
                   <option value="18" selected>18% (standard)</option>
                   <option value="28">28%</option>
                 </select>
-                <span style="font-size:11px;color:#aaa">applied to subtotal after discount</span>
+                <span style="font-size:11px;color:#aaa">applied to subtotal</span>
               </div>
 
+              <!-- Discount row -->
               <div class="gst-row" style="margin-top:.5rem">
-                <label>Discount</label>
-                <input type="number" id="f-discount" min="0" placeholder="0"
-                  style="width:80px;padding:5px 8px;font-size:12px;border:1px solid var(--input-bdr);border-radius:6px;background:var(--input-bg);color:var(--text)"
-                  oninput="updateTotalsUI()">
-                <select id="f-discount-type" onchange="updateTotalsUI()"
-                  style="width:auto;padding:5px 8px;font-size:12px;border:1px solid var(--input-bdr);border-radius:6px;background:var(--input-bg);color:var(--text)">
-                  <option value="fixed">₹ Fixed</option>
-                  <option value="pct">% Percent</option>
-                </select>
+                <label>Discount (₹)</label>
+                <input type="number" id="f-discount" min="0" placeholder="0" style="width:120px;padding:5px 8px;font-size:12px;border:1px solid #e5e5e5;border-radius:6px;font-family:inherit" oninput="updateTotalsUI()">
               </div>
-
               <div class="totals-block">
                 <div class="tot-row"><span>Subtotal</span><span id="t-sub">₹0</span></div>
-                <div class="tot-row" id="t-discount-row" style="display:none;color:#1d6f42"><span id="t-discount-lbl">Discount</span><span id="t-discount">-₹0</span></div>
+                <div class="tot-row" id="t-disc-row" style="display:none;color:#1d6f42"><span>Discount</span><span id="t-disc">−₹0</span></div>
                 <div class="tot-row"><span id="t-gst-lbl">GST (18%)</span><span id="t-gst">₹0</span></div>
                 <div class="tot-row grand"><span>Total</span><span id="t-total">₹0</span></div>
               </div>
@@ -323,10 +337,10 @@
 
             <div class="form-actions">
               <button class="btn" onclick="saveDraft()">Save draft</button>
-              <button class="btn" onclick="previewQuote()">Preview</button>
+              <button class="btn" onclick="previewQuote()">Preview quotation</button>
               <button class="btn" onclick="downloadPDF()">Download PDF</button>
+              <button class="btn" onclick="copyAcceptLink()" id="btn-accept-link" style="display:none" title="Copy link to send to client for acceptance">🔗 Copy acceptance link</button>
               <button class="btn btn-wa" onclick="shareWhatsApp()">Share on WhatsApp</button>
-              <button class="btn" id="btn-copy-link" onclick="copyAcceptLink()" style="display:none" title="Share with client to accept online">Copy acceptance link</button>
               <button class="btn btn-primary" onclick="sendQuote()">Mark as sent</button>
               <button class="btn btn-danger btn-sm" id="btn-del" onclick="deleteCurrentQuote()" style="display:none">Delete</button>
             </div>
@@ -354,7 +368,7 @@
               <div id="pv-lines"></div>
               <hr class="prev-divider">
               <div class="prev-subtot"><span>Subtotal</span><span id="pv-sub">₹0</span></div>
-              <div class="prev-subtot" id="pv-discount-row" style="display:none;color:#1d6f42"><span id="pv-discount-lbl">Discount</span><span id="pv-discount">-₹0</span></div>
+              <div class="prev-subtot" id="pv-disc-row" style="color:#1d6f42;display:none"><span>Discount</span><span id="pv-disc">₹0</span></div>
               <div class="prev-subtot"><span id="pv-gst-lbl">GST 18%</span><span id="pv-gst">₹0</span></div>
               <div class="prev-total"><span>Total</span><span id="pv-total">₹0</span></div>
               <div style="font-size:10px;color:#aaa;margin-top:.75rem" id="pv-valid"></div>
@@ -370,9 +384,12 @@
 <div id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="../js/supabase.js"></script>
 <script src="../js/core.js"></script>
+  <script src="../js/env.js"></script>
+  <script src="../js/sanitize.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="../js/supabase.js"></script>
+  <script src="../js/auth.js"></script>
 <script src="../js/nav.js"></script>
 <script src="../js/pdf.js"></script>
 <script>
@@ -383,32 +400,29 @@ let lineItems  = [];
 let curFilter  = 'all';
 
 // Boot
-renderNav('quotes', '../');
-initLimitBanner();
-
-requireAuth('../login.html').then(function(session) {
-  if (!session) return;
-  sbInit().then(function() {
-    renderPackagePicker();
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('new') === '1') {
-      openForm();
-      var prefill = sessionStorage.getItem('prefill_client');
-      if (prefill) {
-        try {
-          var pc = JSON.parse(prefill);
-          document.getElementById('f-client-name').value    = pc.name    || '';
-          document.getElementById('f-client-contact').value = pc.contact || '';
-          updatePreview();
-        } catch(e) {}
-        sessionStorage.removeItem('prefill_client');
-      }
-    } else if (params.get('id')) {
-      openForm(params.get('id'));
-    } else {
-      renderList();
+initAuth('../').then(ok => {
+  if (!ok) return;
+  renderNav('quotes', '../');
+    initOfflineDetector();
+  initLimitBanner();
+  autoExpireQuotes();
+  renderPackagePicker();
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('new') === '1') {
+    openForm();
+    var prefill = sessionStorage.getItem('prefill_client');
+    if (prefill) {
+      try {
+        var pc = JSON.parse(prefill);
+        document.getElementById('f-client-name').value    = pc.name    || '';
+        document.getElementById('f-client-contact').value = pc.contact || '';
+        updatePreview();
+      } catch(e) {}
+      sessionStorage.removeItem('prefill_client');
     }
-  });
+  }
+  else if (params.get('id')) openForm(params.get('id'));
+  else                       renderList();
 });
 
 // ─── LIST ───────────────────────────────────────────────
@@ -417,7 +431,7 @@ function renderList() {
   const filtered = curFilter === 'all' ? all : all.filter(q => q.status === curFilter);
 
   // Update tab counts
-  const counts = { all: all.length, draft: 0, sent: 0, accepted: 0 };
+  const counts = { all: all.length, draft: 0, sent: 0, accepted: 0, expired: 0 };
   all.forEach(q => { if (counts[q.status] !== undefined) counts[q.status]++; });
   document.querySelectorAll('.filter-tab').forEach(t => {
     const f   = t.dataset.filter;
@@ -441,17 +455,19 @@ function renderList() {
     return;
   }
   tbody.innerHTML = filtered.map(q => {
-    const expired = q.status === 'sent' && isOverdue(q.validUntil);
-    const badge   = expired ? 'overdue' : q.status;
+    const expired = q.status === 'expired';
+    const badge   = q.status;
     const clashIcon = q.eventDate && getClashingQuotes(q.eventDate, q.id).length > 0
       ? ' <span title="Date clash!" style="color:#e53e3e;font-weight:700">&#9888;</span>' : '';
+    const acceptedNote = q.status === 'accepted' && q.acceptedAt
+      ? ` <span style="font-size:10px;color:#1d6f42" title="Accepted on ${new Date(q.acceptedAt).toLocaleString('en-IN')}">✓ ${new Date(q.acceptedAt).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</span>` : '';
     return `<tr>
       <td><a class="action-link" onclick="openForm('${q.id}')">${q.ref}</a></td>
-      <td>${q.clientName || '—'}</td>
+      <td>${esc(q.clientName) || '—'}</td>
       <td>${q.eventDate ? formatDate(q.eventDate) + clashIcon : '<span style="color:#ccc">—</span>'}</td>
       <td>${fmtINR(q.total||0)}</td>
       <td style="${expired?'color:#e53e3e':''}">${formatDate(q.validUntil)}</td>
-      <td><span class="pill pill-${badge}">${cap(badge)}</span></td>
+      <td><span class="pill pill-${badge}">${cap(badge)}</span>${acceptedNote}</td>
       <td>
         <a class="action-link" onclick="openForm('${q.id}')">Edit</a>
         ${(q.status==='sent'||q.status==='accepted') ? ` &nbsp;·&nbsp; <a class="action-link" onclick="convertToInvoice('${q.id}')">Convert</a>` : ''}
@@ -485,12 +501,14 @@ function openForm(id = null) {
     document.getElementById('f-event-date').value         = q.eventDate     || '';
     document.getElementById('f-venue').value              = q.venue         || '';
     document.getElementById('f-gst').value                = q.gstRate ?? 18;
-    document.getElementById('f-discount').value           = q.discountValue || 0;
-    document.getElementById('f-discount-type').value      = q.discountType  || 'fixed';
+    document.getElementById('f-discount').value           = q.discount      || 0;
     document.getElementById('f-notes').value              = q.notes         || '';
     lineItems = JSON.parse(JSON.stringify(q.lineItems || [blankLine()]));
     document.getElementById('btn-del').style.display      = 'inline-flex';
-    document.getElementById('btn-copy-link').style.display = (q.status === 'sent' || q.status === 'accepted') ? 'inline-flex' : 'none';
+    document.getElementById('btn-accept-link').style.display = 'inline-flex';
+    // Show expired banner
+    const expBanner = document.getElementById('expired-banner');
+    if (expBanner) expBanner.style.display = q.status === 'expired' ? 'flex' : 'none';
     // Reminder
     const ron = document.getElementById('f-reminder-on');
     ron.checked = !!(q.reminderDate && !q.reminderDone);
@@ -508,11 +526,13 @@ function openForm(id = null) {
     document.getElementById('f-event-date').value         = '';
     document.getElementById('f-venue').value              = '';
     document.getElementById('f-gst').value                = '18';
-    document.getElementById('f-discount').value           = '';
-    document.getElementById('f-discount-type').value      = 'fixed';
+    document.getElementById('f-discount').value           = 0;
     document.getElementById('f-notes').value              = getSettings().defaultNotes || '';
     lineItems = [blankLine()];
     document.getElementById('btn-del').style.display      = 'none';
+    document.getElementById('btn-accept-link').style.display = 'none';
+    const expBannerNew = document.getElementById('expired-banner');
+    if (expBannerNew) expBannerNew.style.display = 'none';
     document.querySelectorAll('.pkg-btn').forEach(b => b.classList.remove('selected'));
     // Reminder reset
     document.getElementById('f-reminder-on').checked      = false;
@@ -535,67 +555,61 @@ function closeForm() {
 }
 
 // ─── LINE ITEMS ─────────────────────────────────────────
-function blankLine() { return { desc:'', qty:1, rate:0 }; }
+function blankLine() { return { desc:'', qty:1, rate:0, itemType:'service' }; }
 
 function renderLines() {
-  document.getElementById('line-body').innerHTML = lineItems.map((item, i) => `
-    <tr>
+  document.getElementById('line-body').innerHTML = lineItems.map((item, i) => {
+    const isExp = item.itemType === 'expense';
+    return `<tr>
       <td class="col-desc">
         <input value="${esc(item.desc)}" placeholder="Description"
           oninput="lineItems[${i}].desc=this.value;updatePreview()">
       </td>
+      <td class="col-type">
+        <select onchange="lineItems[${i}].itemType=this.value;renderLines();updatePreview()" style="padding:5px 6px;font-size:11px;border:1px solid #e5e5e5;border-radius:6px;font-family:inherit;background:${isExp?'#fef9ee':'#f0fdf4'};color:${isExp?'#92400e':'#166534'}">
+          <option value="service" ${!isExp?'selected':''}>Service</option>
+          <option value="expense" ${isExp?'selected':''}>Expense</option>
+        </select>
+      </td>
       <td class="col-qty">
-        <input type="number" value="${item.qty}" min="1" style="text-align:center"
-          oninput="lineItems[${i}].qty=+this.value||1;updateTotalsUI()">
+        <input type="number" value="${item.qty}" min="0.01" step="0.01" style="text-align:center"
+          oninput="lineItems[${i}].qty=Math.max(0.01,+this.value||0.01);this.value=lineItems[${i}].qty;updateTotalsUI()">
       </td>
       <td class="col-rate">
-        <input type="number" value="${item.rate}" min="0" placeholder="0"
-          oninput="lineItems[${i}].rate=+this.value||0;updateTotalsUI()">
+        <input type="number" value="${item.rate}" min="0" step="1" placeholder="0"
+          oninput="lineItems[${i}].rate=Math.max(0,+this.value||0);this.value=lineItems[${i}].rate;updateTotalsUI()">
       </td>
       <td class="col-amt">${fmtINR(item.qty*item.rate)}</td>
       <td class="col-del">
         ${lineItems.length > 1 ? `<button class="del-btn" onclick="removeLine(${i})">×</button>` : ''}
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 function addLine()       { lineItems.push(blankLine()); renderLines(); updatePreview(); }
 function removeLine(i)   { lineItems.splice(i,1); renderLines(); updateTotalsUI(); }
 
 // ─── TOTALS ─────────────────────────────────────────────
-function getDiscountAmt(subtotal) {
-  const val  = +document.getElementById('f-discount').value || 0;
-  const type = document.getElementById('f-discount-type').value;
-  return type === 'pct' ? Math.round(subtotal * val / 100) : val;
-}
-
 function updateTotalsUI() {
   const rate = +document.getElementById('f-gst').value;
-  const rawSub = lineItems.reduce((s,i) => s + (i.qty||1)*(i.rate||0), 0);
-  const discAmt = getDiscountAmt(rawSub);
-  const { subtotal, discount, gst, total } = calcTotals(lineItems, rate, discAmt);
-
+  const disc = +document.getElementById('f-discount').value || 0;
+  const { subtotal, discount, gst, total } = calcTotals(lineItems, rate, disc);
   document.getElementById('t-sub').textContent     = fmtINR(subtotal);
   document.getElementById('t-gst-lbl').textContent = `GST (${rate}%)`;
   document.getElementById('t-gst').textContent     = fmtINR(gst);
   document.getElementById('t-total').textContent   = fmtINR(total);
-
-  const discRow = document.getElementById('t-discount-row');
-  const discLbl = document.getElementById('t-discount-lbl');
-  const discVal = document.getElementById('t-discount');
+  const discRow = document.getElementById('t-disc-row');
   if (discount > 0) {
-    const type = document.getElementById('f-discount-type').value;
-    const pct  = +document.getElementById('f-discount').value;
-    discLbl.textContent = type === 'pct' ? `Discount (${pct}%)` : 'Discount';
-    discVal.textContent = '-' + fmtINR(discount);
     discRow.style.display = 'flex';
+    document.getElementById('t-disc').textContent = '−' + fmtINR(discount);
   } else {
     discRow.style.display = 'none';
   }
-
+  // refresh amount col
   document.querySelectorAll('#line-body tr').forEach((tr,i) => {
     const c = tr.querySelector('.col-amt');
-    if (c) c.textContent = fmtINR((lineItems[i]?.qty||1) * (lineItems[i]?.rate||0));
+    if (c) c.textContent = fmtINR(lineItems[i].qty * lineItems[i].rate);
   });
   updatePreview();
 }
@@ -604,9 +618,8 @@ function updateTotalsUI() {
 function updatePreview() {
   const s    = getSettings();
   const rate = +document.getElementById('f-gst').value;
-  const rawSub = lineItems.reduce((s,i) => s + (i.qty||1)*(i.rate||0), 0);
-  const discAmt = getDiscountAmt(rawSub);
-  const { subtotal, discount, gst, total } = calcTotals(lineItems, rate, discAmt);
+  const disc = +document.getElementById('f-discount').value || 0;
+  const { subtotal, discount, gst, total } = calcTotals(lineItems, rate, disc);
   const client     = document.getElementById('f-client-name').value    || '—';
   const validUntil = document.getElementById('f-valid-until').value;
   const eventDate  = document.getElementById('f-event-date').value;
@@ -634,17 +647,14 @@ function updatePreview() {
     </div>`).join('');
 
   document.getElementById('pv-sub').textContent     = fmtINR(subtotal);
-  const pvDiscRow = document.getElementById('pv-discount-row');
-  if (discount > 0) {
-    const dtype = document.getElementById('f-discount-type').value;
-    const dval  = +document.getElementById('f-discount').value;
-    document.getElementById('pv-discount-lbl').textContent = dtype === 'pct' ? `Discount (${dval}%)` : 'Discount';
-    document.getElementById('pv-discount').textContent = '-' + fmtINR(discount);
-    pvDiscRow.style.display = 'flex';
-  } else { pvDiscRow.style.display = 'none'; }
   document.getElementById('pv-gst-lbl').textContent = `GST ${rate}%`;
   document.getElementById('pv-gst').textContent     = fmtINR(gst);
   document.getElementById('pv-total').textContent   = fmtINR(total);
+  const pvDiscRow = document.getElementById('pv-disc-row');
+  if (discount > 0) {
+    pvDiscRow.style.display = 'flex';
+    document.getElementById('pv-disc').textContent = '−' + fmtINR(discount);
+  } else { pvDiscRow.style.display = 'none'; }
   document.getElementById('pv-valid').textContent   = validUntil ? 'Valid until ' + formatDate(validUntil) : '';
   document.getElementById('pv-notes').textContent   = notes ? notes.slice(0,80)+(notes.length>80?'…':'') : '';
 }
@@ -678,14 +688,33 @@ function pickClient(name, contact) {
 }
 function hideAC() { setTimeout(()=>{ document.getElementById('ac-list').style.display='none'; },150); }
 
+
+// ─── VALIDATION ─────────────────────────────────────────
+function validateBeforeSave() {
+  const clientName = document.getElementById('f-client-name').value.trim();
+  if (!clientName) {
+    showToast('Client name is required before saving.');
+    document.getElementById('f-client-name').focus();
+    return false;
+  }
+  const hasItem = lineItems.some(i => i.desc.trim().length > 0);
+  if (!hasItem) {
+    showToast('Add at least one line item with a description.');
+    return false;
+  }
+  const allPositive = lineItems.every(i => i.qty > 0 && i.rate >= 0);
+  if (!allPositive) {
+    showToast('Line item quantities must be greater than zero.');
+    return false;
+  }
+  return true;
+}
+
 // ─── BUILD QUOTE OBJECT ─────────────────────────────────
 function buildQuote(status) {
   const rate = +document.getElementById('f-gst').value;
-  const rawSub = lineItems.reduce((s,i) => s + (i.qty||1)*(i.rate||0), 0);
-  const discAmt = getDiscountAmt(rawSub);
-  const { subtotal, discount, gst, total } = calcTotals(lineItems, rate, discAmt);
-  const discountType  = document.getElementById('f-discount-type').value;
-  const discountValue = +document.getElementById('f-discount').value || 0;
+  const disc = +document.getElementById('f-discount').value || 0;
+  const { subtotal, discount, gst, total } = calcTotals(lineItems, rate, disc);
   const clientName    = document.getElementById('f-client-name').value.trim();
   const clientContact = document.getElementById('f-client-contact').value.trim();
   if (clientName) upsertClient({ name:clientName, contact:clientContact });
@@ -704,7 +733,7 @@ function buildQuote(status) {
     eventDate:     document.getElementById('f-event-date').value,
     venue:         document.getElementById('f-venue').value.trim(),
     lineItems:     JSON.parse(JSON.stringify(lineItems)),
-    gstRate:       rate, subtotal, discount, discountType, discountValue, gst, total,
+    gstRate:       rate, subtotal, discount, gst, total,
     notes:         document.getElementById('f-notes').value.trim(),
     reminderDate:  document.getElementById('f-reminder-on').checked
                      ? document.getElementById('f-reminder-date').value : '',
@@ -717,6 +746,7 @@ function buildQuote(status) {
 
 // ─── SAVE / DELETE ──────────────────────────────────────
 function saveDraft() {
+  if (!validateBeforeSave()) return;
   if (!currentId && !trackQuote()) return;
   const q = buildQuote('draft');
   currentId = q.id;
@@ -726,13 +756,25 @@ function saveDraft() {
 }
 
 function sendQuote() {
+  if (!validateBeforeSave()) return;
   if (!currentId && !trackQuote()) return;
   const q = buildQuote('sent');
   currentId = q.id;
   saveQuote(q);
-  document.getElementById('btn-copy-link').style.display = 'inline-flex';
   showToast('Quote marked as sent');
   closeForm();
+}
+
+function reopenQuote() {
+  if (!currentId) return;
+  // Extend valid-until by 14 days from today and reset to sent
+  const newValid = addDays(today(), 14);
+  document.getElementById('f-valid-until').value = newValid;
+  const q = buildQuote('sent');
+  saveQuote(q);
+  document.getElementById('expired-banner').style.display = 'none';
+  showToast('Quote reopened — valid until ' + formatDate(newValid));
+  renderList();
 }
 
 function deleteCurrentQuote() {
@@ -744,18 +786,8 @@ function deleteCurrentQuote() {
 }
 
 // ─── WHATSAPP SHARE ─────────────────────────────────────
-function copyAcceptLink() {
-  if (!currentId) { showToast('Save the quote first'); return; }
-  const base = window.location.href.replace(/\/pages\/quotes\.html.*$/, '');
-  const link = base + '/accept.html?id=' + currentId;
-  navigator.clipboard.writeText(link).then(() => {
-    showToast('Acceptance link copied — share with client');
-  }).catch(() => {
-    prompt('Copy this link and share with your client:', link);
-  });
-}
-
 function previewQuote() {
+  if (!validateBeforeSave()) return;
   if (!currentId && !trackQuote()) return;
   const q = buildQuote(currentId ? (getQuoteById(currentId)?.status || 'draft') : 'draft');
   currentId = q.id;
@@ -773,6 +805,7 @@ function closePreviewModal() {
 }
 
 function downloadPDF() {
+  if (!validateBeforeSave()) return;
   if (!currentId && !trackQuote()) return;
   const q = buildQuote(currentId ? (getQuoteById(currentId)?.status || 'draft') : 'draft');
   currentId = q.id;
@@ -782,18 +815,26 @@ function downloadPDF() {
 }
 
 function shareWhatsApp() {
+  const s      = getSettings();
+  const client = document.getElementById('f-client-name').value.trim() || 'there';
+  const ref    = document.getElementById('form-ref-badge').textContent;
   const rate   = +document.getElementById('f-gst').value;
-  const rawSub = lineItems.reduce((s,i) => s + (i.qty||1)*(i.rate||0), 0);
-  const discAmt = getDiscountAmt(rawSub);
-  const { total } = calcTotals(lineItems, rate, discAmt);
-  const data = {
-    clientName: document.getElementById('f-client-name').value.trim(),
-    ref:        document.getElementById('form-ref-badge').textContent,
-    total,
-    eventDate:  document.getElementById('f-event-date').value,
-    validUntil: document.getElementById('f-valid-until').value,
-  };
-  const msg = buildWAMessage('quote', data);
+  const disc   = +document.getElementById('f-discount').value || 0;
+  const { total } = calcTotals(lineItems, rate, disc);
+  const valid  = document.getElementById('f-valid-until').value;
+  const evDate = document.getElementById('f-event-date').value;
+
+  const defaultTpl = `Hi {client}, here's your quotation {ref} from {studio} for {amount}{event}.\n\nValid until {valid}.\n\nPlease let me know if you have any questions!`;
+  const tpl = (s.whatsappTemplate || defaultTpl);
+
+  const msg = tpl
+    .replace(/{client}/g, client)
+    .replace(/{ref}/g, ref)
+    .replace(/{studio}/g, s.studioName || 'Studio App')
+    .replace(/{amount}/g, fmtINR(total))
+    .replace(/{event}/g, evDate ? ` (event: ${formatDate(evDate)})` : '')
+    .replace(/{valid}/g, formatDate(valid));
+
   window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
 }
 
@@ -855,7 +896,7 @@ function checkClash() {
   warn.style.display = 'block';
   list.innerHTML = clashes.map(q =>
     `<div style="margin-bottom:2px">
-      <strong>${q.ref}</strong> — ${q.clientName || '—'}
+      <strong>${q.ref}</strong> — ${esc(q.clientName) || '—'}
       <span style="color:#b91c1c">(${q.status})</span>
     </div>`
   ).join('');
@@ -1136,6 +1177,9 @@ function buildPreviewHTML(doc, settings, type) {
           <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:#666">
             <span>Sub Total</span><span>${fmtINR(subtotal)}</span>
           </div>
+          ${(doc.discount||0) > 0 ? `<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:#1d6f42">
+            <span>Discount</span><span>−${fmtINR(doc.discount)}</span>
+          </div>` : ''}
           ${gstRate > 0 ? `<div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;color:#666">
             <span>GST (${gstRate}%)</span><span>${fmtINR(gst)}</span>
           </div>` : ''}
@@ -1148,19 +1192,52 @@ function buildPreviewHTML(doc, settings, type) {
       ${milestoneRows}
 
       <!-- Bank details -->
-      ${settings.phone || settings.email || settings.address ? `
+      ${(settings.bankName || settings.upiId || settings.phonePay || settings.phone) ? `
       <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid #e5e5e5">
-        <div style="font-size:12px;font-weight:700;margin-bottom:.4rem">Bank details</div>
-        <div style="font-size:12px;color:#555">${esc(settings.studioName||'')}</div>
-        ${settings.phone ? `<div style="font-size:12px;color:#555">${esc(settings.phone)}</div>` : ''}
-        ${settings.address ? `<div style="font-size:12px;color:#555">${esc(settings.address)}</div>` : ''}
+        <div style="font-size:12px;font-weight:700;margin-bottom:.4rem">Payment Details</div>
+        ${settings.bankName ? `<div style="font-size:12px;color:#555">Bank: ${esc(settings.bankName)}</div>` : ''}
+        ${settings.accountName ? `<div style="font-size:12px;color:#555">A/C: ${esc(settings.accountName)}</div>` : ''}
+        ${settings.accountNumber ? `<div style="font-size:12px;color:#555">A/C No: ${esc(settings.accountNumber)}</div>` : ''}
+        ${settings.ifscCode ? `<div style="font-size:12px;color:#555">IFSC: ${esc(settings.ifscCode)}</div>` : ''}
+        ${settings.upiId ? `<div style="font-size:12px;color:#555">UPI: ${esc(settings.upiId)}</div>` : ''}
+        ${settings.phonePay ? `<div style="font-size:12px;color:#555">PhonePe: ${esc(settings.phonePay)}</div>` : ''}
+        ${settings.googlePay ? `<div style="font-size:12px;color:#555">GPay: ${esc(settings.googlePay)}</div>` : ''}
+        ${!settings.bankName && !settings.upiId ? `<div style="font-size:12px;color:#555">${esc(settings.phone||'')}</div>` : ''}
       </div>` : ''}
+      <!-- Social media -->
+      ${(settings.instagram || settings.website || settings.youtube || settings.facebook) ? `
+      <div style="margin-top:.85rem;padding-top:.75rem;border-top:1px solid #e5e5e5;display:flex;flex-wrap:wrap;gap:8px">
+        ${settings.instagram ? `<a href="https://instagram.com/${settings.instagram.replace('@','')}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);color:#fff;font-size:11px;font-weight:600;text-decoration:none">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+          ${esc(settings.instagram)}</a>` : ''}
+        ${settings.website ? `<a href="${settings.website.startsWith('http')?settings.website:'https://'+settings.website}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:#1865f2;color:#fff;font-size:11px;font-weight:600;text-decoration:none">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+          ${esc(settings.website)}</a>` : ''}
+        ${settings.youtube ? `<a href="${settings.youtube.startsWith('http')?settings.youtube:'https://'+settings.youtube}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:#ff0000;color:#fff;font-size:11px;font-weight:600;text-decoration:none">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M23.495 6.205a3.007 3.007 0 0 0-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 0 0 .527 6.205a31.247 31.247 0 0 0-.522 5.805 31.247 31.247 0 0 0 .522 5.783 3.007 3.007 0 0 0 2.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 0 0 2.088-2.088 31.247 31.247 0 0 0 .5-5.783 31.247 31.247 0 0 0-.5-5.805zM9.609 15.601V8.408l6.264 3.602z"/></svg>
+          ${esc(settings.youtube)}</a>` : ''}
+        ${settings.facebook ? `<a href="${settings.facebook.startsWith('http')?settings.facebook:'https://'+settings.facebook}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:#1877f2;color:#fff;font-size:11px;font-weight:600;text-decoration:none">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          ${esc(settings.facebook)}</a>` : ''}
+      </div>` : ''}
+      <!-- Signature -->
+      ${settings.signature ? `
+      <div style="margin-top:1rem;display:flex;justify-content:flex-end">
+        <div style="text-align:right">
+          <img src="${settings.signature}" style="height:45px;max-width:120px;object-fit:contain;display:block;margin-left:auto">
+          <div style="font-size:11px;color:#888;margin-top:4px">Authorized Signatory</div>
+        </div>
+      </div>` : `
+      <div style="margin-top:1rem;text-align:right">
+        <div style="font-size:11px;color:#888">Authorized Signatory</div>
+      </div>`}
 
       <!-- Total INR footer -->
       <div style="margin-top:1rem;padding-top:.75rem;border-top:1px solid #e5e5e5;display:flex;justify-content:space-between;align-items:center">
         <div style="font-size:13px;color:#555">Total (INR)</div>
         <div style="font-size:20px;font-weight:800">${fmtINR(total)}</div>
       </div>
+      ${settings.signature ? `<div style="margin-top:1rem;display:flex;justify-content:flex-end"><div style="text-align:right"><img src="${settings.signature}" style="height:45px;max-width:120px;object-fit:contain;display:block;margin-left:auto"><div style="font-size:11px;color:#888;margin-top:4px">Authorized Signatory</div></div></div>` : `<div style="margin-top:1rem;text-align:right"><div style="font-size:11px;color:#888">Authorized Signatory</div></div>`}
 
       ${doc.notes ? `<div style="margin-top:1rem;font-size:12px;color:#666;padding:.75rem;background:#f9f9f8;border-radius:8px">${esc(doc.notes)}</div>` : ''}
 
@@ -1174,6 +1251,23 @@ function buildPreviewHTML(doc, settings, type) {
       ${isQuote && doc.validUntil ? `<span>Valid until ${formatDate(doc.validUntil)}</span>` : '<span></span>'}
     </div>
   </div>`;
+}
+
+// ─── ACCEPTANCE LINK ────────────────────────────────────
+function copyAcceptLink() {
+  if (!currentId) { showToast('Save the quote first'); return; }
+  const q = buildQuote(getQuoteById(currentId)?.status || 'sent');
+  currentId = q.id;
+  saveQuote(q);
+  const _q = getQuoteById(currentId);
+  const token = createAcceptToken(currentId, _q?.validUntil || null);
+  const base = window.location.origin + window.location.pathname.replace('/pages/quotes.html', '');
+  const url = base + '/accept.html?t=' + token;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => showToast('Acceptance link copied to clipboard'));
+  } else {
+    prompt('Copy this acceptance link:', url);
+  }
 }
 
 function esc(s) {

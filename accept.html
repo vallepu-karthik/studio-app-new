@@ -9,288 +9,227 @@
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: #f5f5f4; color: #1a1a1a; min-height: 100vh;
-      display: flex; flex-direction: column; align-items: center;
-      padding: 2rem 1rem;
+      display: flex; align-items: center; justify-content: center; padding: 1.5rem;
     }
     .card {
       background: #fff; border: 1px solid #e5e5e5; border-radius: 16px;
-      padding: 2rem; max-width: 560px; width: 100%; margin-bottom: 1rem;
+      padding: 2rem; max-width: 520px; width: 100%; text-align: center;
     }
-    /* Teal header matching PDF */
-    .doc-header {
-      background: #2d4650; border-radius: 12px 12px 0 0;
-      padding: 1.25rem 1.5rem; display: flex;
-      justify-content: space-between; align-items: flex-start;
-      margin: -2rem -2rem 1.5rem;
-    }
-    .doc-title  { color: #d4b464; font-size: 20px; font-weight: 800; margin-bottom: .4rem; }
-    .doc-ref    { color: #fff; font-size: 13px; font-weight: 600; }
-    .doc-date   { color: #d4b464; font-size: 11px; margin-top: .25rem; }
-    .doc-logo   { width: 52px; height: 52px; border-radius: 8px; object-fit: cover; }
-    .logo-placeholder { width: 52px; height: 52px; background: rgba(255,255,255,.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #d4b464; }
-
-    .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #aaa; margin-bottom: .35rem; }
-    .client-name   { font-size: 20px; font-weight: 800; margin-bottom: .25rem; }
-    .studio-name   { font-size: 18px; font-weight: 800; }
-    .meta-text     { font-size: 12px; color: #666; }
-
-    .bill-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem; }
-
-    /* Line items */
-    table { width: 100%; border-collapse: collapse; margin-bottom: .5rem; }
-    thead th { background: #f0f0ee; padding: 8px 10px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #555; }
-    thead th:last-child { text-align: right; }
-    tbody td { padding: 9px 10px; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
-    tbody td:nth-child(2), tbody td:nth-child(3) { color: #666; }
-    tbody td:last-child { text-align: right; font-weight: 600; }
-
-    /* Totals */
-    .totals { display: flex; justify-content: flex-end; margin-bottom: 1rem; }
-    .totals-inner { min-width: 200px; }
-    .tot-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; color: #555; }
-    .tot-row.discount { color: #1d6f42; }
-    .tot-row.grand { font-size: 16px; font-weight: 800; color: #1a1a1a; border-top: 2px solid #1a1a1a; padding-top: 8px; margin-top: 4px; }
-
-    .divider { border: none; border-top: 1px solid #e5e5e5; margin: 1rem 0; }
-
-    /* Valid until */
-    .valid-badge {
-      display: inline-block; background: #fef9ee; border: 1px solid #fcd34d;
-      color: #92400e; border-radius: 8px; padding: 6px 12px; font-size: 12px;
-      font-weight: 600; margin-bottom: 1rem;
-    }
-    .expired-badge {
-      display: inline-block; background: #fef2f2; border: 1px solid #fca5a5;
-      color: #9b1c1c; border-radius: 8px; padding: 6px 12px; font-size: 12px;
-      font-weight: 600; margin-bottom: 1rem;
-    }
-
-    /* Accept button */
+    .studio-name { font-size: 13px; color: #888; margin-bottom: 1.5rem; }
+    .quote-ref { font-size: 13px; font-weight: 600; color: #185fa5; background: #eff6ff; display: inline-block; padding: 3px 10px; border-radius: 20px; margin-bottom: .75rem; }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: .4rem; }
+    .client-name { font-size: 15px; color: #555; margin-bottom: 1.25rem; }
+    .amount-block { background: #f9fafb; border: 1px solid #e5e5e5; border-radius: 12px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; }
+    .amount-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .3rem; }
+    .amount-value { font-size: 32px; font-weight: 800; color: #1a1a1a; }
+    .items-list { text-align: left; margin-bottom: 1.5rem; border: 1px solid #e5e5e5; border-radius: 10px; overflow: hidden; }
+    .item-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 14px; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+    .item-row:last-child { border-bottom: none; }
+    .item-desc { color: #1a1a1a; flex: 1; }
+    .item-tag { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
+    .tag-service { background: #f0fdf4; color: #166534; }
+    .tag-expense { background: #fef9ee; color: #92400e; }
+    .item-amt { font-weight: 600; color: #555; white-space: nowrap; }
+    .totals { text-align: right; padding: 0 14px; margin-bottom: 1.5rem; }
+    .tot-row { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; color: #555; }
+    .tot-row.grand { font-weight: 700; font-size: 15px; color: #1a1a1a; border-top: 1px solid #e5e5e5; margin-top: 5px; padding-top: 8px; }
     .accept-btn {
-      width: 100%; padding: 16px; background: #1a1a1a; color: #fff;
-      border: none; border-radius: 12px; font-size: 16px; font-weight: 700;
-      cursor: pointer; transition: background .15s; margin-top: .5rem;
+      width: 100%; padding: 14px; font-size: 16px; font-weight: 700;
+      background: #1a1a1a; color: #fff; border: none; border-radius: 10px;
+      cursor: pointer; transition: opacity .15s; margin-bottom: .75rem;
     }
-    .accept-btn:hover { background: #333; }
-    .accept-btn:disabled { background: #aaa; cursor: default; }
-
-    /* Accepted state */
-    .accepted-box {
-      background: #eaf3de; border: 1px solid #97c459; border-radius: 12px;
-      padding: 1.5rem; text-align: center; margin-top: .5rem;
-    }
-    .accepted-icon  { font-size: 2rem; margin-bottom: .5rem; }
-    .accepted-title { font-size: 18px; font-weight: 700; color: #1d6f42; margin-bottom: .25rem; }
-    .accepted-time  { font-size: 13px; color: #3b6d11; }
-
-    .notes-box { background: #fafaf9; border-radius: 8px; padding: .85rem 1rem; font-size: 12px; color: #666; margin-top: .75rem; }
-
-    .powered { font-size: 11px; color: #aaa; text-align: center; margin-top: 1rem; }
-    .powered a { color: #aaa; }
-
-    @media(max-width: 480px) {
-      .bill-grid { grid-template-columns: 1fr; }
-      .card { padding: 1.25rem; }
-      .doc-header { margin: -1.25rem -1.25rem 1.25rem; }
-    }
+    .accept-btn:hover { opacity: .85; }
+    .accept-btn:disabled { background: #ccc; cursor: not-allowed; opacity: 1; }
+    .legal { font-size: 12px; color: #aaa; line-height: 1.5; }
+    .valid-until { font-size: 12px; color: #888; margin-bottom: 1.25rem; }
+    /* States */
+    .state-loading, .state-error, .state-done { display: none; }
+    .state-loading.show, .state-error.show, .state-done.show { display: block; }
+    .state-main { display: block; }
+    .state-main.hidden { display: none; }
+    .done-icon { font-size: 56px; margin-bottom: 1rem; }
+    .done-title { font-size: 22px; font-weight: 700; margin-bottom: .5rem; }
+    .done-sub { font-size: 14px; color: #666; }
+    .done-time { font-size: 12px; color: #aaa; margin-top: .5rem; }
+    .err-msg { color: #9b1c1c; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px; padding: 1rem; font-size: 14px; }
+    .expired-tag { background: #fef2f2; color: #9b1c1c; border: 1px solid #fca5a5; display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 1rem; }
   </style>
 </head>
 <body>
+<div class="card">
+  <!-- Loading -->
+  <div class="state-loading" id="state-loading"><p style="color:#888">Loading quote...</p></div>
 
-<div class="card" id="main-card">
-  <div class="doc-header">
-    <div>
-      <div class="doc-title">QUOTATION</div>
-      <div class="doc-ref" id="h-ref">Loading...</div>
-      <div class="doc-date" id="h-date"></div>
-    </div>
-    <div id="h-logo">
-      <div class="logo-placeholder">LOGO</div>
-    </div>
+  <!-- Error -->
+  <div class="state-error" id="state-error">
+    <div class="done-icon">❌</div>
+    <div class="err-msg" id="err-msg">This link is invalid or has expired.</div>
   </div>
 
-  <div id="content">
-    <div style="text-align:center;padding:2rem;color:#aaa">Loading quotation...</div>
+  <!-- Already accepted -->
+  <div class="state-done" id="state-done">
+    <div class="done-icon">✅</div>
+    <div class="done-title">Quote Accepted</div>
+    <div class="done-sub" id="done-sub">This quotation has already been accepted.</div>
+    <div class="done-time" id="done-time"></div>
+  </div>
+
+  <!-- Main acceptance view -->
+  <div class="state-main hidden" id="state-main">
+    <div class="studio-name" id="v-studio"></div>
+    <div class="quote-ref" id="v-ref"></div>
+    <h1>Quotation</h1>
+    <div class="client-name" id="v-client"></div>
+    <div class="valid-until" id="v-valid"></div>
+    <div class="items-list" id="v-items"></div>
+    <div class="totals" id="v-totals"></div>
+    <button class="accept-btn" id="accept-btn" onclick="doAccept()">
+      ✓ I Accept This Quotation
+    </button>
+    <div class="legal">
+      By clicking "I Accept", you confirm your agreement to the quotation above.
+      This will be recorded with a timestamp as your acceptance.
+    </div>
   </div>
 </div>
 
-<div class="powered">
-  Powered by <a href="/" target="_blank">Studio App</a>
-</div>
-
-<!-- Load Supabase CDN -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/env.js"></script>
+  <script src="js/sanitize.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/core.js"></script>
 <script src="js/supabase.js"></script>
 <script>
-// ── Helpers ────────────────────────────────────────────────
-function fmtINR(n) {
-  return '₹' + Math.round(Number(n)||0).toLocaleString('en-IN');
-}
-function formatDate(s) {
-  if (!s) return '—';
-  const d = new Date(s + 'T00:00:00');
-  return d.toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
-}
-function formatDateTime(ts) {
-  const d = new Date(ts);
-  return d.toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) +
-    ' at ' + d.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
-}
-function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+'use strict';
+
+function fmt(n) { return fmtINR(n); }
+
+function show(id) {
+  ['state-loading','state-error','state-done','state-main'].forEach(function(s) {
+    var el = document.getElementById(s);
+    if (el) { el.classList.remove('show'); el.classList.add(s === 'state-main' ? 'hidden' : ''); }
+  });
+  var target = document.getElementById(id);
+  if (!target) return;
+  if (id === 'state-main') { target.classList.remove('hidden'); }
+  else { target.classList.add('show'); }
 }
 
-// ── Load quote from localStorage ──────────────────────────
-const params  = new URLSearchParams(window.location.search);
-const quoteId = params.get('id');
-const KEYS    = { quotes: 'sa_quotes_v1', settings: 'sa_settings_v1' };
+var _token = '';
 
-function getQuote() {
-  try {
-    const quotes = JSON.parse(localStorage.getItem(KEYS.quotes)) || [];
-    return quotes.find(q => q.id === quoteId) || null;
-  } catch { return null; }
-}
-function getSettings() {
-  try { return JSON.parse(localStorage.getItem(KEYS.settings)) || {}; } catch { return {}; }
-}
-function saveQuote(q) {
-  try {
-    const quotes = JSON.parse(localStorage.getItem(KEYS.quotes)) || [];
-    const idx = quotes.findIndex(x => x.id === q.id);
-    if (idx >= 0) quotes[idx] = q; else quotes.unshift(q);
-    localStorage.setItem(KEYS.quotes, JSON.stringify(quotes));
-  } catch {}
-}
+(async function init() {
+  show('state-loading');
+  var params = new URLSearchParams(window.location.search);
+  _token = params.get('t') || '';
+  if (!_token) { show('state-error'); document.getElementById('err-msg').textContent = 'Invalid acceptance link.'; return; }
 
-// ── Render ─────────────────────────────────────────────────
-function render() {
-  const q = getQuote();
-  const s = getSettings();
+  // Try Supabase first (production), fallback to localStorage (dev)
+  var _sbToken = await sbGetAcceptToken(_token).catch(() => null);
+  var q = null;
+  if (_sbToken) {
+    // Fetch the quote via Supabase
+    const { data } = await _sb.from('quotes').select('data').eq('id', _sbToken.quote_id).single().catch(() => ({ data: null }));
+    q = data?.data || null;
+  }
+  if (!q) q = getQuoteByToken(_token); // localStorage fallback
+  if (!q) { show('state-error'); document.getElementById('err-msg').textContent = 'This link is invalid or has expired.'; return; }
 
-  if (!q) {
-    document.getElementById('content').innerHTML = `
-      <div style="text-align:center;padding:2rem">
-        <div style="font-size:2rem;margin-bottom:.75rem">🔍</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:.4rem">Quotation not found</div>
-        <div style="font-size:13px;color:#888">This link may be invalid or the quotation has been deleted.</div>
-      </div>`;
+  // Check token expiry (expires_at set when quote has a validUntil date)
+  if (_sbToken && _sbToken.expires_at) {
+    if (new Date(_sbToken.expires_at) < new Date()) {
+      show('state-error');
+      document.getElementById('err-msg').textContent =
+        'This quotation link has expired. Please contact the studio for an updated quote.';
+      return;
+    }
+  }
+  // Also check quote's own validUntil as a fallback
+  if (q.validUntil && q.status === 'sent') {
+    const today = new Date().toISOString().split('T')[0];
+    if (q.validUntil < today) {
+      show('state-error');
+      document.getElementById('err-msg').textContent =
+        'This quotation has expired (valid until ' + q.validUntil + '). Please contact the studio.';
+      return;
+    }
+  }
+
+  if (q.status === 'accepted') {
+    show('state-done');
+    var s = getSettings();
+    document.getElementById('done-sub').textContent = q.ref + ' — ' + (q.clientName||'') + ' has accepted this quotation.';
+    if (q.acceptedAt) {
+      document.getElementById('done-time').textContent = 'Accepted on ' + new Date(q.acceptedAt).toLocaleString('en-IN', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    }
     return;
   }
 
-  // Header
-  document.getElementById('h-ref').textContent  = q.ref || '';
-  document.getElementById('h-date').textContent = 'Date: ' + formatDate(q.quoteDate);
-  if (s.logo) {
-    document.getElementById('h-logo').innerHTML =
-      `<img class="doc-logo" src="${s.logo}" alt="Logo">`;
+  // Check expired
+  var expired = q.validUntil && new Date(q.validUntil + 'T00:00:00') < new Date();
+
+  var s = getSettings();
+  document.getElementById('v-studio').textContent = s.studioName || 'Studio App';
+  document.getElementById('v-ref').textContent = q.ref;
+  document.getElementById('v-client').textContent = 'For: ' + (q.clientName || '—');
+  if (q.validUntil) {
+    var d = new Date(q.validUntil + 'T00:00:00');
+    var ds = d.toLocaleDateString('en-IN', {day:'numeric',month:'short',year:'numeric'});
+    document.getElementById('v-valid').textContent = expired ? '⚠ Valid until ' + ds + ' (expired)' : 'Valid until ' + ds;
+    if (expired) document.getElementById('v-valid').style.color = '#9b1c1c';
   }
 
-  // Check already accepted
-  const isAccepted = q.status === 'accepted' && q.acceptedAt;
-  const isExpired  = q.validUntil && new Date(q.validUntil + 'T23:59:59') < new Date() && !isAccepted;
-
-  // Line items rows
-  const lineRows = (q.lineItems || []).map(item => {
-    const amt = Math.round((item.qty||1) * (item.rate||0));
-    return `<tr>
-      <td>${esc(item.desc||'')}</td>
-      <td>${item.qty||1}</td>
-      <td>${fmtINR(item.rate||0)}</td>
-      <td>${fmtINR(amt)}</td>
-    </tr>`;
+  // Items
+  var items = q.lineItems || [];
+  document.getElementById('v-items').innerHTML = items.map(function(item) {
+    var amt = Math.round((item.qty||1)*(item.rate||0));
+    var tag = item.itemType === 'expense'
+      ? '<span class="item-tag tag-expense">Expense</span>'
+      : '<span class="item-tag tag-service">Service</span>';
+    return '<div class="item-row"><span class="item-desc">' + esc(item.desc||'') + tag + '</span><span class="item-amt">' + fmt(amt) + '</span></div>';
   }).join('');
 
-  const subtotal   = q.subtotal  || 0;
-  const discount   = q.discount  || 0;
-  const gst        = q.gst       || 0;
-  const gstRate    = q.gstRate   || 0;
-  const total      = q.total     || 0;
+  // Totals
+  var totalsHtml = '<div class="tot-row"><span>Subtotal</span><span>' + fmt(q.subtotal||0) + '</span></div>';
+  if ((q.discount||0) > 0) totalsHtml += '<div class="tot-row" style="color:#1d6f42"><span>Discount</span><span>−' + fmt(q.discount) + '</span></div>';
+  if ((q.gst||0) > 0) totalsHtml += '<div class="tot-row"><span>GST (' + (q.gstRate||0) + '%)</span><span>' + fmt(q.gst) + '</span></div>';
+  totalsHtml += '<div class="tot-row grand"><span>Total</span><span>' + fmt(q.total||0) + '</span></div>';
+  document.getElementById('v-totals').innerHTML = totalsHtml;
 
-  const discountRow = discount > 0
-    ? `<div class="tot-row discount">
-        <span>${q.discountType === 'pct' ? `Discount (${q.discountValue}%)` : 'Discount'}</span>
-        <span>-${fmtINR(discount)}</span>
-       </div>` : '';
-  const gstRow = gst > 0
-    ? `<div class="tot-row"><span>GST (${gstRate}%)</span><span>${fmtINR(gst)}</span></div>` : '';
+  if (expired) {
+    document.getElementById('accept-btn').disabled = true;
+    document.getElementById('accept-btn').textContent = 'Quotation Expired';
+  }
 
-  const validBadge = isExpired
-    ? `<div class="expired-badge">⚠ This quotation expired on ${formatDate(q.validUntil)}</div>`
-    : q.validUntil
-      ? `<div class="valid-badge">Valid until ${formatDate(q.validUntil)}</div>`
-      : '';
+  show('state-main');
+})();
 
-  const acceptSection = isAccepted
-    ? `<div class="accepted-box">
-        <div class="accepted-icon">✅</div>
-        <div class="accepted-title">Quotation accepted</div>
-        <div class="accepted-time">Accepted on ${formatDateTime(q.acceptedAt)}</div>
-       </div>`
-    : `<button class="accept-btn" id="accept-btn" onclick="acceptQuote()" ${isExpired ? 'disabled' : ''}>
-        ${isExpired ? 'This quotation has expired' : 'I accept this quotation'}
-       </button>
-       <div style="font-size:11px;color:#aaa;text-align:center;margin-top:.6rem">
-         By clicking accept, you confirm agreement to the quotation terms above.
-       </div>`;
-
-  document.getElementById('content').innerHTML = `
-    <div class="bill-grid">
-      <div>
-        <div class="section-label">Quotation to</div>
-        <div class="client-name">${esc(q.clientName||'—')}</div>
-        ${q.clientContact ? `<div class="meta-text">${esc(q.clientContact)}</div>` : ''}
-        ${q.eventDate ? `<div class="meta-text" style="margin-top:4px">Event: ${formatDate(q.eventDate)}${q.venue?' · '+esc(q.venue):''}</div>` : ''}
-      </div>
-      <div>
-        <div class="section-label">Quotation from</div>
-        <div class="studio-name">${esc(s.studioName||'Studio App')}</div>
-        ${s.phone ? `<div class="meta-text">${esc(s.phone)}</div>` : ''}
-        ${s.email ? `<div class="meta-text">${esc(s.email)}</div>` : ''}
-      </div>
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th>
-        </tr>
-      </thead>
-      <tbody>${lineRows}</tbody>
-    </table>
-
-    <div class="totals">
-      <div class="totals-inner">
-        <div class="tot-row"><span>Subtotal</span><span>${fmtINR(subtotal)}</span></div>
-        ${discountRow}
-        ${gstRow}
-        <div class="tot-row grand"><span>Total</span><span>${fmtINR(total)}</span></div>
-      </div>
-    </div>
-
-    ${q.notes ? `<div class="notes-box">${esc(q.notes)}</div>` : ''}
-
-    <hr class="divider">
-    ${validBadge}
-    ${acceptSection}
-  `;
+async function doAccept() {
+  var btn = document.getElementById('accept-btn');
+  btn.disabled = true;
+  btn.textContent = 'Processing...';
+  // Try Supabase-backed acceptance
+  var ok = false;
+  if (_sbToken) {
+    // Update via Supabase
+    const { error } = await _sb.from('quotes')
+      .update({ data: { ...q, status:'accepted', acceptedAt: Date.now(), acceptToken: _token } })
+      .eq('id', _sbToken.quote_id).catch(e => ({ error: e }));
+    ok = !error;
+  }
+  if (!ok) ok = markQuoteAccepted(_token); // localStorage fallback
+  if (ok) {
+    show('state-done');
+    var q = getQuoteByToken(_token) || {};
+    document.getElementById('done-sub').textContent = (q.ref||'') + ' has been accepted. The photographer will be notified.';
+    document.getElementById('done-time').textContent = 'Accepted on ' + new Date().toLocaleString('en-IN', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  } else {
+    show('state-error');
+    document.getElementById('err-msg').textContent = 'Something went wrong. Please contact the studio.';
+  }
 }
 
-// ── Accept ─────────────────────────────────────────────────
-function acceptQuote() {
-  const q = getQuote();
-  if (!q) return;
-  const btn = document.getElementById('accept-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
-
-  q.status     = 'accepted';
-  q.acceptedAt = Date.now();
-  saveQuote(q);
-
-  setTimeout(render, 400);
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
-
-render();
 </script>
 </body>
 </html>

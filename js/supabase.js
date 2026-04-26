@@ -9,17 +9,24 @@
 
 'use strict';
 
-// ── ⚙️  CONFIG — replace these two values ─────────────────
-const SUPABASE_URL      = 'https://ezjfblayhsvxjjbjwyzo.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV6amZibGF5aHN2eGpqYmp3eXpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMjA4NDQsImV4cCI6MjA5MjY5Njg0NH0.f2X3YJycGvoomZpze6k0lmQ4a6gxCqMwiyFHEDgwqLM';
+// ── ⚙️  CONFIG ─────────────────────────────────────────────
+// Values are injected at runtime from window.__ENV (set by env.js).
+// Never hardcode credentials here — add them to Vercel Environment Variables:
+//   SUPABASE_URL      → your project URL (no /rest/v1/ suffix)
+//   SUPABASE_ANON_KEY → your anon/public key
 // ──────────────────────────────────────────────────────────
+const SUPABASE_URL      = (window.__ENV && window.__ENV.SUPABASE_URL)      || '';
+const SUPABASE_ANON_KEY = (window.__ENV && window.__ENV.SUPABASE_ANON_KEY) || '';
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('[Studio] Missing Supabase config. Add SUPABASE_URL and SUPABASE_ANON_KEY to Vercel Environment Variables and redeploy.');
+}
 
 const _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     autoRefreshToken:  true,
     persistSession:    true,
     detectSessionInUrl:true,
-    storageKey: 'studio-app-auth',
   }
 });
 
@@ -61,7 +68,13 @@ function sbUserId() {
 
 async function _dbUpsert(table, record) {
   const { error } = await _sb.from(table).upsert(record, { onConflict: 'id' });
-  if (error) throw error;
+  if (error) {
+    // Surface trial-limit errors from DB trigger to the UI
+    if (error.message && error.message.includes('Trial limit')) {
+      showLimitBanner('over');
+    }
+    throw error;
+  }
 }
 
 async function _dbDelete(table, id) {
@@ -84,8 +97,8 @@ async function sbLoadSettings(userId) {
 }
 
 async function sbSaveSettings(userId, settings) {
-  // Strip logo from DB row — logo goes to Storage, not the profile JSON
-  const { logo, theme, ...rest } = settings;  // ← add theme here
+  // Strip logo (goes to Storage) and theme (local-only preference — never cloud-synced)
+  const { logo, theme, ...rest } = settings;
   const { error } = await _sb.from('profiles').upsert({ id: userId, settings: rest });
   if (error) throw error;
 }
@@ -189,20 +202,34 @@ async function sbLoadPackages(userId) {
 }
 
 async function sbSavePackages(userId, packages) {
-  if (!packages.length) return;
-  const rows = packages.map(p => ({ id: p.id, user_id: userId, data: p }));
-  const { error } = await _sb.from('packages').upsert(rows, { onConflict: 'id' });
-  if (error) throw error;
-  // Remove deleted packages
-  const ids = packages.map(p => p.id);
-  await _sb.from('packages').delete().eq('user_id', userId).not('id', 'in', `(${ids.map(i=>`'${i}'`).join(',')})`);
+  // Upsert surviving packages
+  if (packages.length) {
+    const rows = packages.map(p => ({ id: p.id, user_id: userId, data: p }));
+    const { error } = await _sb.from('packages').upsert(rows, { onConflict: 'id' });
+    if (error) throw error;
+  }
+
+  // Delete packages no longer in the list.
+  // When packages is empty we delete ALL — this is intentional (user removed all).
+  // Using a separate query avoids the NOT IN () SQL error on empty arrays.
+  let deleteQuery = _sb.from('packages').delete().eq('user_id', userId);
+  if (packages.length) {
+    const ids = packages.map(p => p.id);
+    deleteQuery = deleteQuery.not('id', 'in', `(${ids.join(',')})`);
+  }
+  const { error: delErr } = await deleteQuery;
+  if (delErr) throw delErr;
 }
 
 // ── Accept tokens ─────────────────────────────────────────
 
-async function sbCreateAcceptToken(userId, token, quoteId) {
+async function sbCreateAcceptToken(userId, token, quoteId, validUntil) {
+  // validUntil is the quote's validUntil date string (YYYY-MM-DD) or null
+  const expires_at = validUntil
+    ? new Date(validUntil + 'T23:59:59').toISOString()
+    : null;
   const { error } = await _sb.from('accept_tokens')
-    .upsert({ token, quote_id: quoteId, user_id: userId }, { onConflict: 'token' });
+    .upsert({ token, quote_id: quoteId, user_id: userId, expires_at }, { onConflict: 'token' });
   if (error) throw error;
 }
 

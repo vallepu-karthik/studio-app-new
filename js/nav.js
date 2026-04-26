@@ -4,14 +4,17 @@ function renderNav(activePage, basePath) {
   var b = (basePath === undefined) ? '' : basePath;
   var settings = getSettings();
 
+  // Apply theme immediately
   applyTheme();
 
+  // Use clean Vercel URLs — no .html extensions in nav
   var nav = [
-    { id:'dashboard', label:'Dashboard',  href: b + 'index.html',         dot:'#639922' },
-    { id:'quotes',    label:'Quotations', href: b + 'pages/quotes.html',   dot:'#378ADD' },
-    { id:'invoices',  label:'Invoices',   href: b + 'pages/invoices.html', dot:'#BA7517' },
-    { id:'clients',   label:'Clients',    href: b + 'pages/clients.html',  dot:'#1D9E75' },
-    { id:'settings',  label:'Settings',   href: b + 'pages/settings.html', dot:'#888780' },
+    { id:'dashboard', label:'Dashboard',  href: '/app',       dot:'#639922' },
+    { id:'quotes',    label:'Quotations', href: '/quotes',    dot:'#378ADD' },
+    { id:'invoices',  label:'Invoices',   href: '/invoices',  dot:'#BA7517' },
+    { id:'clients',   label:'Clients',    href: '/clients',   dot:'#1D9E75' },
+    { id:'reports',   label:'Reports',    href: '/reports',   dot:'#7C3AED' },
+    { id:'settings',  label:'Settings',   href: '/settings',  dot:'#888780' },
   ];
 
   var dueReminders = getDueReminders();
@@ -21,15 +24,14 @@ function renderNav(activePage, basePath) {
   var sidebar = document.getElementById('sidebar');
   if (!sidebar) return;
 
-  var logo   = getLogo();
+  var logo = getLogo();
   var isDark = (settings.theme === 'dark');
 
   var items = nav.map(function(item) {
     var badge = '';
     if (item.id === 'quotes'   && qBadge > 0) badge = '<span class="nav-badge">' + qBadge + '</span>';
     if (item.id === 'invoices' && iBadge > 0) badge = '<span class="nav-badge">' + iBadge + '</span>';
-    return '<li class="nav-item"><a href="' + item.href + '" class="' +
-      (activePage === item.id ? 'active' : '') + '">' +
+    return '<li class="nav-item"><a href="' + item.href + '" class="' + (activePage === item.id ? 'active' : '') + '">' +
       '<span class="nav-dot" style="background:' + item.dot + '"></span>' +
       item.label + badge + '</a></li>';
   }).join('');
@@ -44,19 +46,16 @@ function renderNav(activePage, basePath) {
     '</div>' +
     '<ul class="nav-list">' + items + '</ul>' +
     '<div class="sidebar-footer">' +
-      '<div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0">' +
-        '<span id="trial-footer" style="font-size:11px;color:var(--text4)"></span>' +
-        '<span id="user-email-footer" style="font-size:10px;color:var(--text4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>' +
-      '</div>' +
-      '<div style="display:flex;gap:4px;flex-shrink:0">' +
+      '<span id="trial-footer"></span>' +
+      '<div style="display:flex;gap:6px;align-items:center">' +
         '<button class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme">' +
           (isDark ? '☀' : '☾') +
         '</button>' +
-        '<button class="theme-toggle" id="signout-btn" onclick="handleSignOut()" title="Sign out" style="display:none">⇤</button>' +
+        (typeof signOutAndRedirect === "function" ?
+          '<button class="theme-toggle" onclick="signOutAndRedirect(\'' + b + '\')" title="Sign out" style="font-size:14px">⏻</button>' : '') +
       '</div>' +
     '</div>';
 
-  // Trial info
   var d      = getTrialData();
   var dl     = trialDaysLeft();
   var status = trialStatus();
@@ -66,19 +65,4 @@ function renderNav(activePage, basePath) {
     tf.textContent = dl + 'd · ' + d.quotes + '/100 · ' + d.invoices + '/100';
     if (color) tf.style.color = color;
   }
-
-  // Show user email and sign out if logged in
-  sbGetSession().then(function(session) {
-    if (!session) return;
-    var emailEl = document.getElementById('user-email-footer');
-    var signout = document.getElementById('signout-btn');
-    if (emailEl) emailEl.textContent = session.user.email;
-    if (signout) signout.style.display = 'inline-flex';
-  }).catch(function() {});
-}
-
-async function handleSignOut() {
-  try { await sbSignOut(); } catch(e) {}
-  const inPages = window.location.pathname.includes('/pages/');
-  window.location.href = inPages ? '../login.html' : 'login.html';
 }
