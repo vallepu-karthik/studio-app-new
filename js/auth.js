@@ -43,19 +43,13 @@ async function syncFromCloud() {
   if (!_userId) return;
 
   try {
-    const [quotes, invoices, clients, packages, settings, profile] = await Promise.all([
+    const [quotes, invoices, clients, packages, settings] = await Promise.all([
       sbLoadQuotes(_userId),
       sbLoadInvoices(_userId),
       sbLoadClients(_userId),
       sbLoadPackages(_userId),
       sbLoadSettings(_userId),
-      sbLoadPlan(_userId),    // fetch plan from profiles
     ]);
-
-    // Sync plan status from DB — sets localStorage key used by isPro()
-    if (profile?.plan) {
-      localStorage.setItem('sa_plan', profile.plan);
-    }
 
     // Always write — even empty arrays — so deletions on one device
     // propagate correctly to all other devices. The old if (arr.length)
@@ -234,10 +228,6 @@ async function initAuth(basePath) {
   if (!ok) return false; // already redirecting
 
   applySupabasePatches();
-
-  // Multi-tab sync — must come AFTER supabase patches so broadcast wraps them
-  if (typeof initTabSync === 'function')       initTabSync();
-  if (typeof applyBroadcastPatches === 'function') applyBroadcastPatches();
 
   // First time login — migrate localStorage data to Supabase
   const migrated = localStorage.getItem('sa_migrated_v1');

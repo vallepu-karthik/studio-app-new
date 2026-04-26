@@ -90,14 +90,6 @@ async function _dbFetchAll(table, userId) {
 
 // ── Settings / Profile ────────────────────────────────────
 
-async function sbLoadPlan(userId) {
-  const { data } = await _sb.from('profiles')
-    .select('plan, plan_expires_at')
-    .eq('id', userId)
-    .single();
-  return data || { plan: 'free', plan_expires_at: null };
-}
-
 async function sbLoadSettings(userId) {
   const { data, error } = await _sb.from('profiles').select('settings').eq('id', userId).single();
   if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows

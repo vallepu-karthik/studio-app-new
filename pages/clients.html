@@ -211,7 +211,6 @@
 <div id="toast"></div>
 
 <script src="../js/core.js"></script>
-  <script src="../js/sync.js"></script>
   <script src="../js/env.js"></script>
   <script src="../js/sanitize.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -229,7 +228,6 @@ initAuth('../').then(ok => {
   if (!ok) return;
   renderNav('clients', '../');
   initOfflineDetector();
-    window.__syncRefresh = typeof renderGrid === \'function\' ? renderGrid : null;
   initLimitBanner();
   renderGrid();
 });
