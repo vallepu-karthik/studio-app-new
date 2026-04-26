@@ -160,13 +160,11 @@ td.muted { color: var(--text3); }
 .pill-sent     { background: #eff6ff; color: #1e40af; }
 .pill-draft    { background: var(--stat-bg); color: var(--text3); border: 1px solid var(--border); }
 .pill-accepted { background: #eaf3de; color: #1d6f42; }
-.pill-expired  { background: #fef2f2; color: #9b1c1c; border: 1px solid #fecaca; }
 html[data-theme="dark"] .pill-paid     { background: #1a2e14; color: #7ec85a; }
 html[data-theme="dark"] .pill-sent     { background: #0f1f3d; color: #6fa3e0; }
 html[data-theme="dark"] .pill-pending  { background: #2e1f0a; color: #e6a35a; }
 html[data-theme="dark"] .pill-overdue  { background: #2e0f0f; color: #e06a6a; }
 html[data-theme="dark"] .pill-accepted { background: #1a2e14; color: #7ec85a; }
-html[data-theme="dark"] .pill-expired  { background: #2e0f0f; color: #e06a6a; }
 
 /* ── Action links ──────────────────────────────────────── */
 .action-link { font-size: 12px; color: #185fa5; cursor: pointer; text-decoration: none; white-space: nowrap; }
@@ -263,38 +261,4 @@ select { cursor: pointer; }
   #limit-banner, #reminder-strip, #clash-card { display: none !important; }
   .main-area { overflow: visible; }
   .page { padding: 0; }
-}
-
-/* ── Offline banner ──────────────────────────────────────── */
-#offline-banner {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: #854F0B;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 7px 16px;
-  text-align: center;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  width: 100%;
-}
-html[data-theme="dark"] #offline-banner {
-  background: #633806;
-}
-
-/* ── Toast variants ──────────────────────────────────────── */
-#toast[data-type="info"] {
-  background: var(--bg2);
-  color: var(--text2);
-  border: 0.5px solid var(--border);
-  font-size: 12px;
-  opacity: 0.92;
-}
-#toast[data-type="error"] {
-  background: #A32D2D;
-  color: #fff;
 }

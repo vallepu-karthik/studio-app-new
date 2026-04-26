@@ -3,376 +3,407 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Studio App — Free Quotation & Invoice Tool for Photographers</title>
-  <meta name="description" content="Create professional quotations and invoices for your photography studio. Free. No signup needed. Works in your browser.">
+  <meta name="description" content="Studio App — free quotation and invoice tool for photographers">
+  <meta name="theme-color" content="#1a1a1a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Studio App">
+  <link rel="manifest" href="manifest.json">
+  <title>Dashboard — Studio App</title>
+  <link rel="stylesheet" href="css/style.css">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-size: 15px; line-height: 1.6; color: #1a1a1a; background: #fff;
+    .activity-table thead th:last-child,
+    .activity-table tbody td:last-child { text-align: right; }
+    .reminder-strip {
+      background: #fef9ee; border: 1px solid #fcd34d; border-radius: 10px;
+      padding: .85rem 1rem; margin-bottom: 1rem;
     }
-
-    /* ── Nav ── */
-    nav {
+    .reminder-strip-head {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 1rem 2rem; border-bottom: 1px solid #e5e5e5;
-      position: sticky; top: 0; background: #fff; z-index: 100;
+      margin-bottom: .5rem;
     }
-    .nav-brand { font-size: 16px; font-weight: 700; color: #1a1a1a; text-decoration: none; }
-    .nav-cta {
-      background: #1a1a1a; color: #fff; padding: 8px 20px;
-      border-radius: 8px; font-size: 13px; font-weight: 600;
-      text-decoration: none; transition: background .15s;
+    .reminder-strip-head span { font-size: 13px; font-weight: 600; color: #92400e; }
+    .reminder-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 0; border-top: 1px solid #fde68a; font-size: 13px;
     }
-    .nav-cta:hover { background: #333; }
-
-    /* ── Hero ── */
-    .hero {
-      text-align: center; padding: 5rem 2rem 4rem;
-      max-width: 680px; margin: 0 auto;
+    .reminder-row-left  { color: #78350f; }
+    .reminder-row-ref   { font-weight: 600; margin-right: 6px; }
+    .reminder-row-note  { color: #92400e; }
+    .reminder-row-date  { font-size: 11px; color: #b45309; margin-top: 1px; }
+    .reminder-done-btn  {
+      background: none; border: 1px solid #d97706; border-radius: 6px;
+      padding: 3px 10px; font-size: 11px; font-weight: 600; color: #92400e;
+      cursor: pointer; transition: background .15s;
     }
-    .hero-badge {
-      display: inline-block; background: #eaf3de; color: #1d6f42;
-      font-size: 12px; font-weight: 600; padding: 4px 12px;
-      border-radius: 20px; margin-bottom: 1.25rem;
-    }
-    .hero h1 {
-      font-size: 2.6rem; font-weight: 800; line-height: 1.15;
-      color: #1a1a1a; margin-bottom: 1.1rem; letter-spacing: -.02em;
-    }
-    .hero h1 span { color: #185fa5; }
-    .hero p {
-      font-size: 1.1rem; color: #555; margin-bottom: 2rem; line-height: 1.65;
-    }
-    .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-    .btn-hero {
-      background: #1a1a1a; color: #fff; padding: 13px 28px;
-      border-radius: 10px; font-size: 15px; font-weight: 600;
-      text-decoration: none; transition: background .15s;
-    }
-    .btn-hero:hover { background: #333; }
-    .btn-hero-outline {
-      background: #fff; color: #1a1a1a; padding: 13px 28px;
-      border-radius: 10px; font-size: 15px; font-weight: 600;
-      border: 1.5px solid #d0d0d0; text-decoration: none; transition: border-color .15s;
-    }
-    .btn-hero-outline:hover { border-color: #888; }
-    .hero-note { font-size: 12px; color: #aaa; margin-top: 1rem; }
-
-    /* ── Preview card ── */
-    .preview-wrap {
-      max-width: 900px; margin: 0 auto 5rem;
-      padding: 0 2rem;
-    }
-    .preview-card {
-      background: #f5f5f4; border-radius: 16px; padding: 1.5rem;
-      border: 1px solid #e5e5e5;
-    }
-    .preview-bar {
-      display: flex; gap: 6px; margin-bottom: 1rem;
-    }
-    .preview-dot { width: 11px; height: 11px; border-radius: 50%; }
-    .preview-screen {
-      background: #fff; border-radius: 10px; border: 1px solid #e5e5e5;
-      overflow: hidden;
-    }
-    .ps-topbar {
-      background: #fff; border-bottom: 1px solid #e5e5e5;
-      padding: .75rem 1.25rem; display: flex; align-items: center;
-      justify-content: space-between;
-    }
-    .ps-title { font-size: 15px; font-weight: 600; }
-    .ps-btn {
-      background: #1a1a1a; color: #fff; padding: 6px 14px;
-      border-radius: 7px; font-size: 12px; font-weight: 600;
-    }
-    .ps-body { display: grid; grid-template-columns: 180px 1fr; min-height: 280px; }
-    .ps-sidebar {
-      border-right: 1px solid #e5e5e5; padding: 1rem 0; background: #fafaf9;
-    }
-    .ps-nav-item {
-      padding: 8px 1.1rem; font-size: 12px; color: #888;
-      display: flex; align-items: center; gap: 8px;
-    }
-    .ps-nav-item.active { color: #1a1a1a; font-weight: 600; background: #fff; border-left: 2px solid #1a1a1a; }
-    .ps-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-    .ps-main { padding: 1.25rem; }
-    .ps-hero-card {
-      background: #eaf3de; border: 1px solid #97c459; border-radius: 10px;
-      padding: 1rem 1.25rem; margin-bottom: 1rem;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .ps-hero-label { font-size: 11px; color: #3b6d11; margin-bottom: .2rem; }
-    .ps-hero-amt   { font-size: 24px; font-weight: 800; color: #27500a; }
-    .ps-overdue    { background: #fef2f2; color: #9b1c1c; border-radius: 7px; padding: 5px 10px; font-size: 12px; font-weight: 600; }
-    .ps-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 1rem; }
-    .ps-stat { background: #fafaf9; border: 1px solid #e5e5e5; border-radius: 8px; padding: .65rem .85rem; }
-    .ps-stat-lbl { font-size: 10px; color: #aaa; margin-bottom: .2rem; }
-    .ps-stat-val { font-size: 16px; font-weight: 700; }
-
-    /* ── Features ── */
-    .features {
-      max-width: 900px; margin: 0 auto 5rem; padding: 0 2rem;
-    }
-    .section-label {
-      text-align: center; font-size: 11px; font-weight: 600; color: #aaa;
-      text-transform: uppercase; letter-spacing: .1em; margin-bottom: .75rem;
-    }
-    .section-title {
-      text-align: center; font-size: 2rem; font-weight: 800;
-      color: #1a1a1a; margin-bottom: 3rem; letter-spacing: -.02em;
-    }
-    .feature-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.25rem; }
-    .feature-card {
-      background: #fafaf9; border: 1px solid #e5e5e5; border-radius: 14px;
-      padding: 1.5rem;
-    }
-    .feature-icon { font-size: 1.75rem; margin-bottom: .85rem; }
-    .feature-card h3 { font-size: 15px; font-weight: 700; margin-bottom: .4rem; }
-    .feature-card p  { font-size: 13px; color: #666; line-height: 1.55; }
-
-    /* ── How it works ── */
-    .how { max-width: 700px; margin: 0 auto 5rem; padding: 0 2rem; text-align: center; }
-    .steps { display: flex; flex-direction: column; gap: 0; margin-top: 2rem; text-align: left; }
-    .step { display: flex; gap: 1.25rem; padding: 1.25rem 0; border-bottom: 1px solid #f0f0f0; }
-    .step:last-child { border-bottom: none; }
-    .step-num {
-      width: 32px; height: 32px; border-radius: 50%; background: #1a1a1a;
-      color: #fff; font-size: 13px; font-weight: 700; display: flex;
-      align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px;
-    }
-    .step h4 { font-size: 15px; font-weight: 700; margin-bottom: .25rem; }
-    .step p  { font-size: 13px; color: #666; }
-
-    /* ── Pricing ── */
-    .pricing { max-width: 700px; margin: 0 auto 5rem; padding: 0 2rem; text-align: center; }
-    .price-card {
-      background: #fff; border: 1.5px solid #e5e5e5; border-radius: 16px;
-      padding: 2rem; margin-top: 2rem;
-    }
-    .price-free { font-size: 2.5rem; font-weight: 800; color: #1a1a1a; }
-    .price-sub  { font-size: 14px; color: #888; margin-bottom: 1.5rem; }
-    .price-features { list-style: none; text-align: left; display: flex; flex-direction: column; gap: .6rem; margin-bottom: 1.5rem; }
-    .price-features li { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #444; }
-    .price-features li::before { content: '✓'; color: #1d6f42; font-weight: 700; font-size: 13px; }
-    .price-limit { font-size: 12px; color: #aaa; margin-top: 1rem; }
-
-    /* ── CTA banner ── */
-    .cta-banner {
-      background: #1a1a1a; color: #fff; text-align: center;
-      padding: 4rem 2rem; margin-bottom: 0;
-    }
-    .cta-banner h2 { font-size: 2rem; font-weight: 800; margin-bottom: .75rem; }
-    .cta-banner p  { font-size: 1rem; color: #aaa; margin-bottom: 1.75rem; }
-    .btn-cta {
-      background: #fff; color: #1a1a1a; padding: 13px 32px;
-      border-radius: 10px; font-size: 15px; font-weight: 700;
-      text-decoration: none; display: inline-block; transition: opacity .15s;
-    }
-    .btn-cta:hover { opacity: .9; }
-
-    /* ── Footer ── */
-    footer {
-      padding: 1.5rem 2rem; border-top: 1px solid #e5e5e5;
-      display: flex; justify-content: space-between; align-items: center;
-      font-size: 12px; color: #aaa; flex-wrap: wrap; gap: .5rem;
-    }
-
-    @media(max-width: 640px) {
-      .hero h1 { font-size: 1.8rem; }
-      .feature-grid { grid-template-columns: 1fr; }
-      .ps-body { grid-template-columns: 1fr; }
-      .ps-sidebar { display: none; }
-      .ps-stats { grid-template-columns: 1fr 1fr; }
-      nav { padding: 1rem; }
-      footer { flex-direction: column; text-align: center; }
-    }
+    .reminder-done-btn:hover { background: #fde68a; }
   </style>
 </head>
 <body>
 
-<!-- Nav -->
-<nav>
-  <a class="nav-brand" href="#">Studio App</a>
-  <a class="nav-cta" href="pages/auth.html">Open app →</a>
-</nav>
+<div class="app-shell">
 
-<!-- Hero -->
-<section class="hero">
-  <div class="hero-badge">Free for photographers</div>
-  <h1>Quotes & invoices your clients will <span>actually pay</span></h1>
-  <p>Studio App is a free, no-login quotation and invoice tool built specifically for photographers. GST-compliant, WhatsApp-ready, works in your browser.</p>
-  <div class="hero-actions">
-    <a class="btn-hero" href="pages/auth.html">Start for free →</a>
-    <a class="btn-hero-outline" href="#features">See features</a>
-  </div>
-  <div class="hero-note">No signup. No credit card. 100 quotes + 100 invoices free.</div>
-</section>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar"></aside>
 
-<!-- App preview -->
-<div class="preview-wrap">
-  <div class="preview-card">
-    <div class="preview-bar">
-      <div class="preview-dot" style="background:#ff5f57"></div>
-      <div class="preview-dot" style="background:#febc2e"></div>
-      <div class="preview-dot" style="background:#28c840"></div>
-    </div>
-    <div class="preview-screen">
-      <div class="ps-topbar">
-        <div class="ps-title">Overview</div>
-        <div style="display:flex;gap:8px">
-          <div style="border:1px solid #e5e5e5;border-radius:7px;padding:5px 12px;font-size:12px">New quote</div>
-          <div class="ps-btn">New invoice</div>
+  <!-- Main -->
+  <main class="main-area">
+    <div class="page">
+
+      <!-- Limit banner -->
+      <div class="limit-banner" id="limit-banner"></div>
+
+      <!-- Reminder strip -->
+      <div id="reminder-strip"></div>
+
+      <!-- Global search -->
+      <div style="position:relative;margin-bottom:1.25rem">
+        <input type="text" id="global-search" placeholder="Search quotes, invoices, clients..."
+          style="width:100%;padding:10px 16px 10px 40px;font-size:14px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--text);font-family:inherit"
+          oninput="runSearch(this.value)" autocomplete="off">
+        <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:15px;pointer-events:none">🔍</span>
+        <div id="search-results" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:50;margin-top:4px;max-height:320px;overflow-y:auto"></div>
+      </div>
+
+      <!-- Page header -->
+      <div class="page-header">
+        <h1>Overview</h1>
+        <div class="btn-group">
+          <a href="pages/quotes.html?new=1" class="btn" id="btn-new-quote">New quote</a>
+          <a href="pages/invoices.html?new=1" class="btn btn-primary" id="btn-new-invoice">New invoice</a>
         </div>
       </div>
-      <div class="ps-body">
-        <div class="ps-sidebar">
-          <div style="padding:.75rem 1.1rem .75rem;font-size:12px;font-weight:700;border-bottom:1px solid #e5e5e5;margin-bottom:.5rem">Studio App</div>
-          <div class="ps-nav-item active"><span class="ps-dot" style="background:#639922"></span>Dashboard</div>
-          <div class="ps-nav-item"><span class="ps-dot" style="background:#378ADD"></span>Quotations</div>
-          <div class="ps-nav-item"><span class="ps-dot" style="background:#BA7517"></span>Invoices</div>
-          <div class="ps-nav-item"><span class="ps-dot" style="background:#1D9E75"></span>Clients</div>
-          <div class="ps-nav-item"><span class="ps-dot" style="background:#888"></span>Settings</div>
+
+      <!-- Hero — outstanding amount -->
+      <div class="hero-card" id="hero-card">
+        <div>
+          <div class="label">Outstanding — money you are owed</div>
+          <div class="amount" id="outstanding-amount">₹0</div>
+          <div class="sub" id="outstanding-sub">across 0 unpaid invoices</div>
         </div>
-        <div class="ps-main">
-          <div class="ps-hero-card">
-            <div>
-              <div class="ps-hero-label">Outstanding — money you are owed</div>
-              <div class="ps-hero-amt">₹45,000</div>
-              <div style="font-size:11px;color:#3b6d11;margin-top:.2rem">across 3 unpaid invoices</div>
-            </div>
-            <div class="ps-overdue">₹15,000 overdue</div>
-          </div>
-          <div class="ps-stats">
-            <div class="ps-stat">
-              <div class="ps-stat-lbl">Revenue this month</div>
-              <div class="ps-stat-val">₹2,40,000</div>
-            </div>
-            <div class="ps-stat">
-              <div class="ps-stat-lbl">Quotes awaiting reply</div>
-              <div class="ps-stat-val">4</div>
-            </div>
-            <div class="ps-stat">
-              <div class="ps-stat-lbl">Quotes this month</div>
-              <div class="ps-stat-val">24</div>
-            </div>
-          </div>
-          <div style="font-size:11px;color:#aaa;text-align:center;padding:.5rem 0">Recent activity table ↓</div>
+        <div id="overdue-block" style="display:none">
+          <div class="label" style="text-align:right;margin-bottom:.4rem">Needs attention</div>
+          <div class="overdue-pill" id="overdue-amount">₹0 overdue</div>
         </div>
       </div>
-    </div>
-  </div>
+
+      <!-- Stat cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Revenue this month</div>
+          <div class="stat-value" id="stat-revenue">₹0</div>
+          <div class="stat-sub" id="stat-revenue-sub">from 0 paid invoices</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Quotes awaiting reply</div>
+          <div class="stat-value" id="stat-pending-quotes">0</div>
+          <div class="stat-sub" id="stat-pending-sub">sent, no response yet</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Quotes this month</div>
+          <div class="stat-value" id="stat-quotes-month">0</div>
+          <div class="stat-sub" id="stat-quotes-sub">0 converted to invoices</div>
+        </div>
+      </div>
+
+      <!-- Calendar clashes -->
+      <div id="clash-card" style="display:none;margin-bottom:1rem">
+        <div class="card" style="border-color:#fca5a5;background:#fef2f2">
+          <div class="section-head" style="margin-bottom:.6rem">
+            <h2 style="color:#9b1c1c">&#9888; Booking clashes</h2>
+            <span style="font-size:12px;color:#b91c1c">Multiple quotes on the same date</span>
+          </div>
+          <div id="clash-card-list"></div>
+        </div>
+      </div>
+
+      <!-- Recent activity -->
+      <div class="card">
+        <div class="section-head">
+          <h2>Recent activity</h2>
+          <a href="pages/quotes.html" class="action-link">View all →</a>
+        </div>
+
+        <div id="activity-empty" class="empty-state" style="display:none">
+          <div class="empty-icon">📋</div>
+          <h3>No activity yet</h3>
+          <p>Create your first quotation to get started.</p>
+          <a href="pages/quotes.html?new=1" class="btn btn-primary">New quote</a>
+        </div>
+
+        <div class="table-wrap" id="activity-table-wrap">
+          <table class="activity-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Client</th>
+                <th>Type</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="activity-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /.page -->
+  </main>
 </div>
 
-<!-- Features -->
-<section class="features" id="features">
-  <div class="section-label">Everything you need</div>
-  <div class="section-title">Built for how photographers actually work</div>
-  <div class="feature-grid">
-    <div class="feature-card">
-      <div class="feature-icon">📄</div>
-      <h3>Professional quotations</h3>
-      <p>Create itemised quotes with GST, event date, venue. Live PDF preview as you type. Send in seconds.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">🧾</div>
-      <h3>GST-compliant invoices</h3>
-      <p>0%, 5%, 12%, 18%, 28% GST options. GSTIN on every PDF. Sub-total and tax shown separately.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">💰</div>
-      <h3>Payment milestones</h3>
-      <p>Track advance, pre-event, and final payment separately. Know exactly how much is still owed.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">📦</div>
-      <h3>Package templates</h3>
-      <p>Save your Wedding Standard, Premium, Portrait packages. One click fills all line items.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">💬</div>
-      <h3>WhatsApp sharing</h3>
-      <p>One tap opens WhatsApp with a pre-written message containing the quote summary. No copy-pasting.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon">👥</div>
-      <h3>Client history</h3>
-      <p>Every client's quotes and invoices in one place. Total billed, outstanding balance, full timeline.</p>
-    </div>
-  </div>
-</section>
+<!-- Toast -->
+<div id="toast"></div>
 
-<!-- How it works -->
-<section class="how">
-  <div class="section-label">How it works</div>
-  <div class="section-title">Up and running in 3 minutes</div>
-  <div class="steps">
-    <div class="step">
-      <div class="step-num">1</div>
-      <div>
-        <h4>Set up your studio profile</h4>
-        <p>Add your studio name, phone, email, address, and GSTIN in Settings. This appears on every PDF automatically.</p>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/supabase.js"></script>
+<script src="js/core.js"></script>
+<script src="js/nav.js"></script>
+<script>
+  // ── Boot ────────────────────────────────────────────────
+  renderNav('dashboard', '');
+  initLimitBanner();
+  // Auth + Supabase init
+  requireAuth('login.html').then(function(session) {
+    if (!session) return;
+    sbInit().then(function() {
+      loadReminders();
+      loadClashes();
+      loadDashboard();
+    });
+  });
+
+  function loadReminders() {
+    const due = getDueReminders();
+    const strip = document.getElementById('reminder-strip');
+    if (!strip) return;
+    if (due.length === 0) { strip.innerHTML = ''; return; }
+
+    const rows = due.map(r => {
+      const page = r.type === 'quote' ? 'pages/quotes.html' : 'pages/invoices.html';
+      return `<div class="reminder-row">
+        <div class="reminder-row-left">
+          <div>
+            <a href="${page}?id=${r.id}" class="reminder-row-ref">${r.ref}</a>
+            <span class="reminder-row-note">${r.clientName ? '· ' + r.clientName : ''} — ${r.reminderNote}</span>
+          </div>
+          <div class="reminder-row-date">Due ${formatDate(r.reminderDate)}</div>
+        </div>
+        <button class="reminder-done-btn" onclick="doneReminder('${r.type}','${r.id}')">Done</button>
+      </div>`;
+    }).join('');
+
+    strip.innerHTML = `<div class="reminder-strip">
+      <div class="reminder-strip-head">
+        <span>&#128276; ${due.length} follow-up${due.length > 1 ? 's' : ''} due</span>
       </div>
-    </div>
-    <div class="step">
-      <div class="step-num">2</div>
-      <div>
-        <h4>Create a quotation</h4>
-        <p>Enter the client name, event date, venue, and your line items. GST is calculated automatically. See the PDF preview live as you type.</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">3</div>
-      <div>
-        <h4>Send on WhatsApp</h4>
-        <p>Hit "Share on WhatsApp" — a message with the quote summary opens in WhatsApp. Client sees a professional summary instantly.</p>
-      </div>
-    </div>
-    <div class="step">
-      <div class="step-num">4</div>
-      <div>
-        <h4>Convert to invoice and track payment</h4>
-        <p>When the client confirms, convert the quote to an invoice in one click. Track advance, pre-event, and final payment separately.</p>
-      </div>
-    </div>
-  </div>
-</section>
+      ${rows}
+    </div>`;
+  }
 
-<!-- Pricing -->
-<section class="pricing">
-  <div class="section-label">Pricing</div>
-  <div class="section-title">Free to start</div>
-  <div class="price-card">
-    <div class="price-free">₹0</div>
-    <div class="price-sub">No credit card. No signup.</div>
-    <ul class="price-features">
-      <li>100 quotations</li>
-      <li>100 invoices</li>
-      <li>6 months from first use</li>
-      <li>PDF generation with your branding</li>
-      <li>WhatsApp sharing</li>
-      <li>Payment milestone tracking</li>
-      <li>Client history</li>
-      <li>GST-compliant documents</li>
-    </ul>
-    <a class="btn-hero" href="pages/auth.html" style="display:inline-block;text-decoration:none">Start for free →</a>
-    <div class="price-limit">Whichever limit comes first — 100 quotes, 100 invoices, or 6 months.</div>
-  </div>
-</section>
+  function doneReminder(type, id) {
+    markReminderDone(type, id);
+    loadReminders();
+    showToast('Reminder marked done');
+  }
 
-<!-- CTA -->
-<div class="cta-banner">
-  <h2>Start sending professional quotes today</h2>
-  <p>No signup. No credit card. Opens in your browser right now.</p>
-  <a class="btn-cta" href="pages/auth.html">Open Studio App →</a>
-</div>
+  function runSearch(query) {
+    const q   = query.trim().toLowerCase();
+    const box = document.getElementById('search-results');
+    if (!q) { box.style.display = 'none'; return; }
 
-<!-- Footer -->
-<footer>
-  <span>Studio App — Free quotation & invoice tool for photographers</span>
-  <span>Built for Indian photography studios</span>
-</footer>
+    const quotes   = getQuotes();
+    const invoices = getInvoices();
+    const clients  = getClients();
 
+    const results = [];
+
+    quotes.filter(x =>
+      (x.ref||'').toLowerCase().includes(q) ||
+      (x.clientName||'').toLowerCase().includes(q)
+    ).slice(0,4).forEach(x => results.push({
+      type:'Quote', ref:x.ref, name:x.clientName, amount:x.total,
+      status:x.status, href:`pages/quotes.html?id=${x.id}`
+    }));
+
+    invoices.filter(x =>
+      (x.ref||'').toLowerCase().includes(q) ||
+      (x.clientName||'').toLowerCase().includes(q)
+    ).slice(0,4).forEach(x => results.push({
+      type:'Invoice', ref:x.ref, name:x.clientName, amount:x.total,
+      status:x.status, href:`pages/invoices.html?id=${x.id}`
+    }));
+
+    clients.filter(x =>
+      (x.name||'').toLowerCase().includes(q) ||
+      (x.contact||'').toLowerCase().includes(q)
+    ).slice(0,3).forEach(x => results.push({
+      type:'Client', ref:'', name:x.name, amount:null,
+      status:'', href:`pages/clients.html`
+    }));
+
+    if (results.length === 0) {
+      box.innerHTML = `<div style="padding:1rem;text-align:center;font-size:13px;color:var(--text3)">No results for "${query}"</div>`;
+      box.style.display = 'block'; return;
+    }
+
+    box.innerHTML = results.map(r => `
+      <a href="${r.href}" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;text-decoration:none;color:var(--text);border-bottom:1px solid var(--border2)" onmouseover="this.style.background='var(--hover-bg)'" onmouseout="this.style.background=''">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:10px;font-weight:700;background:var(--bg3);padding:2px 7px;border-radius:20px;color:var(--text3)">${r.type}</span>
+          <div>
+            <div style="font-size:13px;font-weight:600">${r.name||'—'}</div>
+            ${r.ref ? `<div style="font-size:11px;color:var(--text3)">${r.ref}</div>` : ''}
+          </div>
+        </div>
+        <div style="text-align:right">
+          ${r.amount != null ? `<div style="font-size:13px;font-weight:600">${fmtINR(r.amount)}</div>` : ''}
+          ${r.status ? `<div style="font-size:11px;color:var(--text3)">${r.status}</div>` : ''}
+        </div>
+      </a>`).join('');
+    box.style.display = 'block';
+  }
+
+  // Close search on outside click
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('#global-search') && !e.target.closest('#search-results')) {
+      const box = document.getElementById('search-results');
+      if (box) box.style.display = 'none';
+    }
+  });
+
+  function loadClashes() {
+    const clashes = getAllClashes();
+    const card    = document.getElementById('clash-card');
+    const list    = document.getElementById('clash-card-list');
+    if (!card || !list) return;
+
+    if (clashes.length === 0) { card.style.display = 'none'; return; }
+    card.style.display = 'block';
+
+    list.innerHTML = clashes.map(clash => {
+      const refs = clash.quotes.map(q =>
+        `<a href="pages/quotes.html?id=${q.id}" class="action-link" style="color:#9b1c1c">
+          ${q.ref} (${q.clientName || '—'})
+        </a>`
+      ).join(' &amp; ');
+      return `<div style="display:flex;align-items:center;justify-content:space-between;
+               padding:7px 0;border-top:1px solid #fecaca;font-size:13px">
+        <div>
+          <span style="font-weight:600;color:#9b1c1c">${formatDate(clash.date)}</span>
+          <span style="color:#b91c1c;margin-left:.5rem">— ${refs}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function loadDashboard() {
+    const quotes   = getQuotes();
+    const invoices = getInvoices();
+    const now      = new Date();
+    const thisMonth = now.getMonth();
+    const thisYear  = now.getFullYear();
+
+    // ── Outstanding & overdue ────────────────────────────
+    const unpaid   = invoices.filter(i => i.status !== 'paid');
+    const overdue  = unpaid.filter(i => isOverdue(i.dueDate));
+    const outstanding = unpaid.reduce((s, i) => s + (i.total || 0), 0);
+    const overdueAmt  = overdue.reduce((s, i)  => s + (i.total || 0), 0);
+
+    document.getElementById('outstanding-amount').textContent = fmtINR(outstanding);
+    document.getElementById('outstanding-sub').textContent =
+      `across ${unpaid.length} unpaid invoice${unpaid.length !== 1 ? 's' : ''}`;
+
+    if (overdueAmt > 0) {
+      document.getElementById('overdue-block').style.display = 'block';
+      document.getElementById('overdue-amount').textContent = fmtINR(overdueAmt) + ' overdue';
+    }
+
+    // ── Revenue this month ───────────────────────────────
+    const paidThisMonth = invoices.filter(i => {
+      if (i.status !== 'paid') return false;
+      const d = new Date(i.updatedAt || i.createdAt || 0);
+      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+    });
+    const revenue = paidThisMonth.reduce((s, i) => s + (i.total || 0), 0);
+    document.getElementById('stat-revenue').textContent = fmtINR(revenue);
+    document.getElementById('stat-revenue-sub').textContent =
+      `from ${paidThisMonth.length} paid invoice${paidThisMonth.length !== 1 ? 's' : ''}`;
+
+    // ── Quotes awaiting reply ────────────────────────────
+    const sentQuotes = quotes.filter(q => q.status === 'sent');
+    document.getElementById('stat-pending-quotes').textContent = sentQuotes.length;
+    document.getElementById('stat-pending-sub').textContent =
+      sentQuotes.length > 0 ? 'sent, awaiting client reply' : 'no quotes sent yet';
+
+    // ── Quotes this month ────────────────────────────────
+    const quotesThisMonth = quotes.filter(q => {
+      const d = new Date(q.createdAt || 0);
+      return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+    });
+    const converted = quotesThisMonth.filter(q => q.convertedToInvoice);
+    document.getElementById('stat-quotes-month').textContent = quotesThisMonth.length;
+    document.getElementById('stat-quotes-sub').textContent =
+      `${converted.length} converted to invoice${converted.length !== 1 ? 's' : ''}`;
+
+    // ── Recent activity table ────────────────────────────
+    const allItems = [
+      ...quotes.map(q => ({ ...q, _type: 'Quote' })),
+      ...invoices.map(i => ({ ...i, _type: 'Invoice' })),
+    ].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 8);
+
+    if (allItems.length === 0) {
+      document.getElementById('activity-empty').style.display = 'block';
+      document.getElementById('activity-table-wrap').style.display = 'none';
+      return;
+    }
+    document.getElementById('activity-empty').style.display = 'none';
+    document.getElementById('activity-table-wrap').style.display = 'block';
+
+    const tbody = document.getElementById('activity-body');
+    tbody.innerHTML = allItems.map(item => {
+      const isInvoice = item._type === 'Invoice';
+      const rawStatus = item.status || 'draft';
+      const status    = isInvoice && rawStatus === 'pending' && isOverdue(item.dueDate) ? 'overdue' : rawStatus;
+      const pill      = pillHTML(status);
+      const action    = actionHTML(item, isInvoice, status);
+      const editPage  = isInvoice ? 'pages/invoices.html' : 'pages/quotes.html';
+
+      return `<tr>
+        <td><a href="${editPage}?id=${item.id}" class="action-link">${item.ref || item.id}</a></td>
+        <td>${item.clientName || '—'}</td>
+        <td class="muted">${item._type}</td>
+        <td>${fmtINR(item.total || 0)}</td>
+        <td>${pill}</td>
+        <td>${action}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function pillHTML(status) {
+    const map = {
+      draft:    ['pill-draft',    'Draft'],
+      sent:     ['pill-sent',     'Sent'],
+      accepted: ['pill-accepted', 'Accepted'],
+      pending:  ['pill-pending',  'Pending'],
+      paid:     ['pill-paid',     'Paid'],
+      overdue:  ['pill-overdue',  'Overdue'],
+    };
+    const [cls, label] = map[status] || ['pill-draft', status];
+    return `<span class="pill ${cls}">${label}</span>`;
+  }
+
+  function actionHTML(item, isInvoice, status) {
+    if (isInvoice) {
+      if (status === 'paid')    return `<a href="pages/invoices.html?id=${item.id}" class="action-link">View</a>`;
+      if (status === 'overdue') return `<a href="pages/invoices.html?id=${item.id}" class="action-link">Send reminder</a>`;
+      return `<a href="pages/invoices.html?id=${item.id}" class="action-link">Mark paid</a>`;
+    } else {
+      if (status === 'sent')    return `<a href="pages/quotes.html?id=${item.id}" class="action-link">Convert to invoice</a>`;
+      if (status === 'draft')   return `<a href="pages/quotes.html?id=${item.id}" class="action-link">Edit</a>`;
+      return `<a href="pages/quotes.html?id=${item.id}" class="action-link">View</a>`;
+    }
+  }
+</script>
 </body>
 </html>

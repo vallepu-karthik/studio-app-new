@@ -46,45 +46,10 @@ function isOverdue(dateStr) {
   return new Date(dateStr + 'T00:00:00') < new Date(today() + 'T00:00:00');
 }
 
-// ── Multi-currency config ─────────────────────────────────
-const CURRENCIES = {
-  INR: { symbol: '\u20b9', locale: 'en-IN', pdfSymbol: 'Rs.', label: 'INR (\u20b9)' },
-  USD: { symbol: '$',   locale: 'en-US', pdfSymbol: '$',   label: 'USD ($)' },
-  AED: { symbol: 'AED ', locale: 'en-AE', pdfSymbol: 'AED ', label: 'AED (\u062f.\u0625)' },
-  GBP: { symbol: '\u00a3', locale: 'en-GB', pdfSymbol: '\u00a3', label: 'GBP (\u00a3)' },
-  EUR: { symbol: '\u20ac', locale: 'en-DE', pdfSymbol: '\u20ac', label: 'EUR (\u20ac)' },
-  SGD: { symbol: 'S$',  locale: 'en-SG', pdfSymbol: 'S$',  label: 'SGD (S$)' },
-  AUD: { symbol: 'A$',  locale: 'en-AU', pdfSymbol: 'A$',  label: 'AUD (A$)' },
-};
-
-function getCurrencyConfig(code) {
-  return CURRENCIES[code] || CURRENCIES['INR'];
-}
-
-function getActiveCurrency() {
-  return getSettings().currency || 'INR';
-}
-
 // ── Currency formatter ────────────────────────────────────
 function fmtINR(n) {
   const num = Math.round(Number(n) || 0);
-  const cur = getCurrencyConfig(getActiveCurrency());
-  return cur.symbol + num.toLocaleString(cur.locale);
-}
-
-// ── Quote auto-expiry ─────────────────────────────────────
-// Flips status: 'sent' -> 'expired' when validUntil < today.
-function autoExpireQuotes() {
-  const t = today();
-  let changed = false;
-  const quotes = getQuotes().map(q => {
-    if (q.status === 'sent' && q.validUntil && q.validUntil < t) {
-      changed = true;
-      return { ...q, status: 'expired', updatedAt: Date.now() };
-    }
-    return q;
-  });
-  if (changed) saveQuotes(quotes);
+  return '₹' + num.toLocaleString('en-IN');
 }
 
 // ── Settings ──────────────────────────────────────────────
@@ -101,30 +66,12 @@ function getSettings() {
     startNumber:  1,
     paymentDays:  14,
     defaultNotes: 'Thank you for choosing us!',
-    invoiceDefaultNotes: '',
     currency:     'INR',
     logo:         '',
     theme:        'light',
     termsAndConditions: '',
-    // Bank / payment details
-    bankName:     '',
-    accountName:  '',
-    accountNumber:'',
-    ifscCode:     '',
-    upiId:        '',
-    phonePay:     '',
-    googlePay:    '',
-    // Social media
-    instagram:    '',
-    website:      '',
-    youtube:      '',
-    facebook:     '',
-    // Google review
-    googleReviewLink: '',
-    // Signature
-    signature:    '',
-    // WhatsApp template
-    whatsappTemplate: 'Hi {client}, here\'s your quotation {ref} from {studio} for {amount}{event}.\n\nValid until {valid}.\n\nPlease let me know if you have any questions!',
+    waTemplateQuote:    '',
+    waTemplateInvoice:  '',
   };
 }
 function saveSettings(data) { Store.set(KEYS.settings, data); }
@@ -251,15 +198,6 @@ function upsertClient(clientData) {
   saveClients(clients);
 }
 
-// ── Plan helpers ─────────────────────────────────────────
-function isPro() {
-  // Check DB-synced plan cached in settings
-  const s = Store.get(KEYS.settings) || {};
-  if (s.plan === 'pro') return true;
-  // Also check dedicated plan key (set by auth.js after cloud sync)
-  return localStorage.getItem('sa_plan') === 'pro';
-}
-
 // ── Trial limit system ────────────────────────────────────
 const TRIAL = { quotes: 100, invoices: 100, days: 180 };
 
@@ -293,7 +231,6 @@ function trialStatus() {
 
 // Call before creating a quote — returns true if allowed
 function trackQuote() {
-  if (isPro()) return true; // Pro users have no limits
   const status = trialStatus();
   if (status === 'over') { showLimitBanner('over'); return false; }
   const d = getTrialData();
@@ -305,7 +242,6 @@ function trackQuote() {
 
 // Call before creating an invoice — returns true if allowed
 function trackInvoice() {
-  if (isPro()) return true; // Pro users have no limits
   const status = trialStatus();
   if (status === 'over') { showLimitBanner('over'); return false; }
   const d = getTrialData();
@@ -322,10 +258,10 @@ function showLimitBanner(type) {
   const dl = trialDaysLeft();
   if (type === 'over') {
     banner.className = 'limit-banner over';
-    banner.innerHTML = '<span>Free trial limit reached — <a href="/pricing.html" style="color:inherit;font-weight:600;text-decoration:underline">upgrade to Pro</a> to continue creating documents.</span>';
+    banner.innerHTML = '<span>Free trial limit reached — upgrade to continue creating documents.</span>';
   } else {
     banner.className = 'limit-banner warn';
-    banner.innerHTML = `<span>Heads up — ${d.quotes}/${TRIAL.quotes} quotes · ${d.invoices}/${TRIAL.invoices} invoices · ${dl} days left in trial. <a href="/pricing.html" style="color:inherit;font-weight:600;text-decoration:underline">Upgrade to Pro</a></span>
+    banner.innerHTML = `<span>Heads up — ${d.quotes}/${TRIAL.quotes} quotes · ${d.invoices}/${TRIAL.invoices} invoices · ${dl} days left in trial.</span>
       <button onclick="this.parentElement.style.display='none'" class="btn btn-sm">Dismiss</button>`;
   }
 }
@@ -337,20 +273,8 @@ function initLimitBanner() {
 
 // ── Toast ─────────────────────────────────────────────────
 let _toastTimer = null;
-function showToast(msg, typeOrDuration = 2800) {
+function showToast(msg, duration = 2800) {
   const el = document.getElementById('toast');
-  if (!el) return;
-
-  // Support showToast(msg, 'info'|'error') or showToast(msg, ms)
-  var duration = 2800;
-  var toastType = 'default';
-  if (typeof typeOrDuration === 'string') {
-    toastType = typeOrDuration;
-    duration  = toastType === 'info' ? 2000 : 2800; // info toasts are quicker
-  } else if (typeof typeOrDuration === 'number') {
-    duration = typeOrDuration;
-  }
-  el.dataset.type = toastType; // CSS can style by [data-type="info"] etc.
   if (!el) return;
   el.textContent = msg;
   el.classList.add('show');
@@ -367,13 +291,12 @@ function setActiveNav() {
 }
 
 // ── Totals calculator ─────────────────────────────────────
-function calcTotals(items, gstRate, discount) {
-  const subtotal  = items.reduce((s, item) => s + (Number(item.qty) * Number(item.rate)), 0);
-  const disc      = Math.round(Number(discount) || 0);
-  const afterDisc = Math.max(0, subtotal - disc);
-  const gst       = Math.round(afterDisc * (gstRate / 100));
-  const total     = afterDisc + gst;
-  return { subtotal, discount: disc, afterDiscount: afterDisc, gst, total };
+function calcTotals(items, gstRate, discountAmt) {
+  const subtotal    = items.reduce((s, item) => s + (Number(item.qty) * Number(item.rate)), 0);
+  const discounted  = Math.max(0, subtotal - (discountAmt || 0));
+  const gst         = Math.round(discounted * (gstRate / 100));
+  const total       = discounted + gst;
+  return { subtotal, discount: discountAmt || 0, discounted, gst, total };
 }
 
 // ── Reminders ─────────────────────────────────────────────
@@ -466,64 +389,6 @@ function getAllClashes() {
   return clashes.sort(function(a, b) { return a.date.localeCompare(b.date); });
 }
 
-// ── Quote acceptance ──────────────────────────────────────
-// Stores acceptance tokens: key = 'sa_accept_v1', value = { [token]: quoteId }
-const ACCEPT_KEY = 'sa_accept_v1';
-
-function getAcceptTokens() {
-  return Store.get(ACCEPT_KEY) || {};
-}
-
-function createAcceptToken(quoteId) {
-  var tokens = getAcceptTokens();
-  // reuse existing token for same quote
-  var existing = Object.keys(tokens).find(function(t){ return tokens[t] === quoteId; });
-  if (existing) return existing;
-  var token = genId() + genId();
-  tokens[token] = quoteId;
-  Store.set(ACCEPT_KEY, tokens);
-  return token;
-}
-
-function getQuoteByToken(token) {
-  var tokens = getAcceptTokens();
-  var quoteId = tokens[token];
-  if (!quoteId) return null;
-  return getQuoteById(quoteId) || null;
-}
-
-function markQuoteAccepted(token) {
-  var tokens = getAcceptTokens();
-  var quoteId = tokens[token];
-  if (!quoteId) return false;
-  var q = getQuoteById(quoteId);
-  if (!q) return false;
-  q.status = 'accepted';
-  q.acceptedAt = Date.now();
-  q.acceptToken = token;
-  saveQuote(q);
-  return true;
-}
-
-
-// ── Offline detector ──────────────────────────────────────
-// Call once on page load. Shows a banner when the user loses
-// internet — reassures them that saves still work locally.
-function initOfflineDetector() {
-  function update() {
-    var banner = document.getElementById('offline-banner');
-    if (!banner) return;
-    if (navigator.onLine) {
-      banner.style.display = 'none';
-    } else {
-      banner.style.display = 'flex';
-    }
-  }
-  window.addEventListener('online',  update);
-  window.addEventListener('offline', update);
-  update(); // set initial state
-}
-
 // ── Theme ──────────────────────────────────────────────────
 function applyTheme() {
   var s = getSettings();
@@ -554,4 +419,154 @@ function removeLogo() {
   var s = getSettings();
   s.logo = '';
   saveSettings(s);
+}
+
+// ── WhatsApp message builder ───────────────────────────────
+var DEFAULT_WA_QUOTE   = 'Hi {client}, here\'s your quotation {ref} from {studio} for {total}{eventDate}.\n\nValid until {validUntil}.\n\nPlease let me know if you have any questions!';
+var DEFAULT_WA_INVOICE = 'Hi {client}, here\'s your invoice {ref} from {studio} for {total}{eventDate}.\n\nPayment due by {validUntil}.\n\nThank you!';
+
+function buildWAMessage(type, data) {
+  var s        = getSettings();
+  var template = type === 'quote'
+    ? (s.waTemplateQuote   || DEFAULT_WA_QUOTE)
+    : (s.waTemplateInvoice || DEFAULT_WA_INVOICE);
+
+  return template
+    .replace(/{client}/g,    data.clientName    || 'there')
+    .replace(/{ref}/g,       data.ref           || '')
+    .replace(/{studio}/g,    s.studioName       || 'Studio App')
+    .replace(/{total}/g,     fmtINR(data.total  || 0))
+    .replace(/{eventDate}/g, data.eventDate ? ' (event: ' + formatDate(data.eventDate) + ')' : '')
+    .replace(/{validUntil}/g,data.validUntil ? formatDate(data.validUntil) : data.dueDate ? formatDate(data.dueDate) : '—');
+}
+
+// ── Supabase sync layer ────────────────────────────────────
+// Hybrid mode: localStorage is the source of truth for speed.
+// Supabase syncs in background. On boot, Supabase overwrites localStorage.
+
+const ACCEPT_KEY = 'sa_accept_tokens';
+let _sbUserId = null;
+let _sbReady  = false;
+
+async function sbInit() {
+  try {
+    const session = await sbGetSession();
+    if (!session) return false;
+    _sbUserId = session.user.id;
+    _sbReady  = true;
+
+    // Check if migration needed
+    const migrated = localStorage.getItem('sa_migrated_v1');
+
+    // Load from Supabase — overwrite localStorage
+    const [quotes, invoices, clients, settings] = await Promise.all([
+      sbLoadQuotes(_sbUserId),
+      sbLoadInvoices(_sbUserId),
+      sbLoadClients(_sbUserId),
+      sbLoadSettings(_sbUserId),
+    ]);
+
+    if (quotes.length)    Store.set(KEYS.quotes,   quotes);
+    if (invoices.length)  Store.set(KEYS.invoices,  invoices);
+    if (clients.length)   Store.set(KEYS.clients,   clients);
+    if (settings)         Store.set(KEYS.settings,  settings);
+
+    // Load logo URL
+    const logoUrl = await sbGetLogoUrl(_sbUserId);
+    if (logoUrl) {
+      const s = Store.get(KEYS.settings) || {};
+      s.logo = logoUrl;
+      Store.set(KEYS.settings, s);
+    }
+
+    // Migrate localStorage → Supabase if not done
+    if (!migrated) {
+      await sbMigrateFromLocalStorage(_sbUserId);
+    }
+
+    return true;
+  } catch(e) {
+    console.warn('[Studio] Supabase init failed, using localStorage:', e.message);
+    return false;
+  }
+}
+
+// Override save functions to also write to Supabase
+const _origSaveQuote = saveQuote;
+function saveQuote(quote) {
+  _origSaveQuote(quote);
+  if (_sbReady && _sbUserId) {
+    sbSaveQuote(_sbUserId, quote).catch(e => console.warn('sbSaveQuote:', e.message));
+  }
+}
+
+const _origDeleteQuote = deleteQuote;
+function deleteQuote(id) {
+  _origDeleteQuote(id);
+  if (_sbReady && _sbUserId) {
+    sbDeleteQuote(_sbUserId, id).catch(e => console.warn('sbDeleteQuote:', e.message));
+  }
+}
+
+const _origSaveInvoice = saveInvoice;
+function saveInvoice(invoice) {
+  _origSaveInvoice(invoice);
+  if (_sbReady && _sbUserId) {
+    sbSaveInvoice(_sbUserId, invoice).catch(e => console.warn('sbSaveInvoice:', e.message));
+  }
+}
+
+const _origDeleteInvoice = deleteInvoice;
+function deleteInvoice(id) {
+  _origDeleteInvoice(id);
+  if (_sbReady && _sbUserId) {
+    sbDeleteInvoice(_sbUserId, id).catch(e => console.warn('sbDeleteInvoice:', e.message));
+  }
+}
+
+const _origSaveClients = saveClients;
+function saveClients(arr) {
+  _origSaveClients(arr);
+  if (_sbReady && _sbUserId) {
+    arr.forEach(c => sbSaveClient(_sbUserId, c).catch(() => {}));
+  }
+}
+
+const _origSaveSettings = saveSettings;
+function saveSettings(data) {
+  _origSaveSettings(data);
+  if (_sbReady && _sbUserId) {
+    sbSaveSettings(_sbUserId, data).catch(e => console.warn('sbSaveSettings:', e.message));
+    // Upload logo if it's a base64 (new upload)
+    if (data.logo && data.logo.startsWith('data:')) {
+      sbUploadLogo(_sbUserId, data.logo).then(url => {
+        const s = Store.get(KEYS.settings) || {};
+        s.logo = url;
+        Store.set(KEYS.settings, s);
+      }).catch(() => {});
+    }
+  }
+}
+
+const _origSavePackages = savePackages;
+function savePackages(arr) {
+  _origSavePackages(arr);
+  if (_sbReady && _sbUserId) {
+    sbSavePackages(_sbUserId, arr).catch(e => console.warn('sbSavePackages:', e.message));
+  }
+}
+
+// Auth guard — call on every page to redirect if not logged in
+async function requireAuth(redirectTo) {
+  try {
+    const session = await sbGetSession();
+    if (!session) {
+      window.location.href = redirectTo || '../login.html';
+      return null;
+    }
+    return session;
+  } catch {
+    // Supabase unavailable — allow offline use
+    return { offline: true };
+  }
 }
