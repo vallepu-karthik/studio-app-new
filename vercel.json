@@ -1,8 +1,77 @@
 {
   "version": 2,
+  "buildCommand": "sed -i \"s|__SUPABASE_URL__|$SUPABASE_URL|g\" js/env.js && sed -i \"s|__SUPABASE_ANON_KEY__|$SUPABASE_ANON_KEY|g\" js/env.js",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        }
+      ]
+    }
+  ],
   "rewrites": [
-    { "source": "/app", "destination": "/index.html" },
-    { "source": "/app/(.*)", "destination": "/$1" },
-    { "source": "/", "destination": "/landing.html" }
+    {
+      "source": "/",
+      "destination": "/landing.html"
+    },
+    {
+      "source": "/app",
+      "destination": "/dashboard.html"
+    },
+    {
+      "source": "/quotes",
+      "destination": "/pages/quotes.html"
+    },
+    {
+      "source": "/invoices",
+      "destination": "/pages/invoices.html"
+    },
+    {
+      "source": "/clients",
+      "destination": "/pages/clients.html"
+    },
+    {
+      "source": "/reports",
+      "destination": "/pages/reports.html"
+    },
+    {
+      "source": "/settings",
+      "destination": "/pages/settings.html"
+    },
+    {
+      "source": "/accept",
+      "destination": "/accept.html"
+    },
+    {
+      "source": "/app/(.*)",
+      "destination": "/pages/$1"
+    },
+    {
+      "source": "/pricing",
+      "destination": "/pricing.html"
+    },
+    {
+      "source": "/upgrade-success",
+      "destination": "/pages/upgrade-success.html"
+    }
   ]
 }

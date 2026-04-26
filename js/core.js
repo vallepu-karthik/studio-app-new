@@ -251,6 +251,15 @@ function upsertClient(clientData) {
   saveClients(clients);
 }
 
+// ── Plan helpers ─────────────────────────────────────────
+function isPro() {
+  // Check DB-synced plan cached in settings
+  const s = Store.get(KEYS.settings) || {};
+  if (s.plan === 'pro') return true;
+  // Also check dedicated plan key (set by auth.js after cloud sync)
+  return localStorage.getItem('sa_plan') === 'pro';
+}
+
 // ── Trial limit system ────────────────────────────────────
 const TRIAL = { quotes: 100, invoices: 100, days: 180 };
 
@@ -284,6 +293,7 @@ function trialStatus() {
 
 // Call before creating a quote — returns true if allowed
 function trackQuote() {
+  if (isPro()) return true; // Pro users have no limits
   const status = trialStatus();
   if (status === 'over') { showLimitBanner('over'); return false; }
   const d = getTrialData();
@@ -295,6 +305,7 @@ function trackQuote() {
 
 // Call before creating an invoice — returns true if allowed
 function trackInvoice() {
+  if (isPro()) return true; // Pro users have no limits
   const status = trialStatus();
   if (status === 'over') { showLimitBanner('over'); return false; }
   const d = getTrialData();
@@ -311,10 +322,10 @@ function showLimitBanner(type) {
   const dl = trialDaysLeft();
   if (type === 'over') {
     banner.className = 'limit-banner over';
-    banner.innerHTML = '<span>Free trial limit reached — upgrade to continue creating documents.</span>';
+    banner.innerHTML = '<span>Free trial limit reached — <a href="/pricing.html" style="color:inherit;font-weight:600;text-decoration:underline">upgrade to Pro</a> to continue creating documents.</span>';
   } else {
     banner.className = 'limit-banner warn';
-    banner.innerHTML = `<span>Heads up — ${d.quotes}/${TRIAL.quotes} quotes · ${d.invoices}/${TRIAL.invoices} invoices · ${dl} days left in trial.</span>
+    banner.innerHTML = `<span>Heads up — ${d.quotes}/${TRIAL.quotes} quotes · ${d.invoices}/${TRIAL.invoices} invoices · ${dl} days left in trial. <a href="/pricing.html" style="color:inherit;font-weight:600;text-decoration:underline">Upgrade to Pro</a></span>
       <button onclick="this.parentElement.style.display='none'" class="btn btn-sm">Dismiss</button>`;
   }
 }
@@ -326,8 +337,20 @@ function initLimitBanner() {
 
 // ── Toast ─────────────────────────────────────────────────
 let _toastTimer = null;
-function showToast(msg, duration = 2800) {
+function showToast(msg, typeOrDuration = 2800) {
   const el = document.getElementById('toast');
+  if (!el) return;
+
+  // Support showToast(msg, 'info'|'error') or showToast(msg, ms)
+  var duration = 2800;
+  var toastType = 'default';
+  if (typeof typeOrDuration === 'string') {
+    toastType = typeOrDuration;
+    duration  = toastType === 'info' ? 2000 : 2800; // info toasts are quicker
+  } else if (typeof typeOrDuration === 'number') {
+    duration = typeOrDuration;
+  }
+  el.dataset.type = toastType; // CSS can style by [data-type="info"] etc.
   if (!el) return;
   el.textContent = msg;
   el.classList.add('show');
@@ -480,6 +503,25 @@ function markQuoteAccepted(token) {
   q.acceptToken = token;
   saveQuote(q);
   return true;
+}
+
+
+// ── Offline detector ──────────────────────────────────────
+// Call once on page load. Shows a banner when the user loses
+// internet — reassures them that saves still work locally.
+function initOfflineDetector() {
+  function update() {
+    var banner = document.getElementById('offline-banner');
+    if (!banner) return;
+    if (navigator.onLine) {
+      banner.style.display = 'none';
+    } else {
+      banner.style.display = 'flex';
+    }
+  }
+  window.addEventListener('online',  update);
+  window.addEventListener('offline', update);
+  update(); // set initial state
 }
 
 // ── Theme ──────────────────────────────────────────────────
