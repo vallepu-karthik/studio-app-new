@@ -122,18 +122,8 @@
       .form-right { position: static; }
     }
   </style>
-  <script>
-    /* Anti-FOUC: apply theme before first paint to prevent light flash */
-    (function() {
-      try {
-        var s = JSON.parse(localStorage.getItem('sa_settings_v1') || '{}');
-        if (s.theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-      } catch(e) {}
-    })();
-  </script>
 </head>
 <body>
-<div id="offline-banner">You're offline &mdash; changes are saved locally and will sync when reconnected.</div>
 <div class="app-shell">
   <aside class="sidebar" id="sidebar"></aside>
   <main class="main-area">
@@ -385,9 +375,6 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="../js/core.js"></script>
-  <script src="../js/sync.js"></script>
-  <script src="../js/env.js"></script>
-  <script src="../js/sanitize.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase.js"></script>
   <script src="../js/auth.js"></script>
@@ -404,8 +391,6 @@ let curFilter  = 'all';
 initAuth('../').then(ok => {
   if (!ok) return;
   renderNav('quotes', '../');
-  initOfflineDetector();
-    window.__syncRefresh = typeof renderList === \'function\' ? renderList : null;
   initLimitBanner();
   autoExpireQuotes();
   renderPackagePicker();
@@ -465,7 +450,7 @@ function renderList() {
       ? ` <span style="font-size:10px;color:#1d6f42" title="Accepted on ${new Date(q.acceptedAt).toLocaleString('en-IN')}">✓ ${new Date(q.acceptedAt).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</span>` : '';
     return `<tr>
       <td><a class="action-link" onclick="openForm('${q.id}')">${q.ref}</a></td>
-      <td>${esc(q.clientName) || '—'}</td>
+      <td>${q.clientName || '—'}</td>
       <td>${q.eventDate ? formatDate(q.eventDate) + clashIcon : '<span style="color:#ccc">—</span>'}</td>
       <td>${fmtINR(q.total||0)}</td>
       <td style="${expired?'color:#e53e3e':''}">${formatDate(q.validUntil)}</td>
@@ -574,12 +559,12 @@ function renderLines() {
         </select>
       </td>
       <td class="col-qty">
-        <input type="number" value="${item.qty}" min="0.01" step="0.01" style="text-align:center"
-          oninput="lineItems[${i}].qty=Math.max(0.01,+this.value||0.01);this.value=lineItems[${i}].qty;updateTotalsUI()">
+        <input type="number" value="${item.qty}" min="1" style="text-align:center"
+          oninput="lineItems[${i}].qty=+this.value||1;updateTotalsUI()">
       </td>
       <td class="col-rate">
-        <input type="number" value="${item.rate}" min="0" step="1" placeholder="0"
-          oninput="lineItems[${i}].rate=Math.max(0,+this.value||0);this.value=lineItems[${i}].rate;updateTotalsUI()">
+        <input type="number" value="${item.rate}" min="0" placeholder="0"
+          oninput="lineItems[${i}].rate=+this.value||0;updateTotalsUI()">
       </td>
       <td class="col-amt">${fmtINR(item.qty*item.rate)}</td>
       <td class="col-del">
@@ -690,28 +675,6 @@ function pickClient(name, contact) {
 }
 function hideAC() { setTimeout(()=>{ document.getElementById('ac-list').style.display='none'; },150); }
 
-
-// ─── VALIDATION ─────────────────────────────────────────
-function validateBeforeSave() {
-  const clientName = document.getElementById('f-client-name').value.trim();
-  if (!clientName) {
-    showToast('Client name is required before saving.');
-    document.getElementById('f-client-name').focus();
-    return false;
-  }
-  const hasItem = lineItems.some(i => i.desc.trim().length > 0);
-  if (!hasItem) {
-    showToast('Add at least one line item with a description.');
-    return false;
-  }
-  const allPositive = lineItems.every(i => i.qty > 0 && i.rate >= 0);
-  if (!allPositive) {
-    showToast('Line item quantities must be greater than zero.');
-    return false;
-  }
-  return true;
-}
-
 // ─── BUILD QUOTE OBJECT ─────────────────────────────────
 function buildQuote(status) {
   const rate = +document.getElementById('f-gst').value;
@@ -748,7 +711,6 @@ function buildQuote(status) {
 
 // ─── SAVE / DELETE ──────────────────────────────────────
 function saveDraft() {
-  if (!validateBeforeSave()) return;
   if (!currentId && !trackQuote()) return;
   const q = buildQuote('draft');
   currentId = q.id;
@@ -758,7 +720,6 @@ function saveDraft() {
 }
 
 function sendQuote() {
-  if (!validateBeforeSave()) return;
   if (!currentId && !trackQuote()) return;
   const q = buildQuote('sent');
   currentId = q.id;
@@ -896,7 +857,7 @@ function checkClash() {
   warn.style.display = 'block';
   list.innerHTML = clashes.map(q =>
     `<div style="margin-bottom:2px">
-      <strong>${q.ref}</strong> — ${esc(q.clientName) || '—'}
+      <strong>${q.ref}</strong> — ${q.clientName || '—'}
       <span style="color:#b91c1c">(${q.status})</span>
     </div>`
   ).join('');
@@ -1259,8 +1220,7 @@ function copyAcceptLink() {
   const q = buildQuote(getQuoteById(currentId)?.status || 'sent');
   currentId = q.id;
   saveQuote(q);
-  const _q = getQuoteById(currentId);
-  const token = createAcceptToken(currentId, _q?.validUntil || null);
+  const token = createAcceptToken(currentId);
   const base = window.location.origin + window.location.pathname.replace('/pages/quotes.html', '');
   const url = base + '/accept.html?t=' + token;
   if (navigator.clipboard) {
