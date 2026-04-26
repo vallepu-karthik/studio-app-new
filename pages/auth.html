@@ -149,7 +149,7 @@
 // If already logged in, skip to dashboard
 (async function() {
   const session = await sbGetSession();
-  if (session) window.location.href = '../dashboard.html';
+  if (session) window.location.href = '../index.html';
 })();
 
 function switchTab(tab) {
@@ -199,7 +199,7 @@ async function doSignIn() {
   setLoading('btn-signin', true);
   try {
     await sbSignIn(email, password);
-    window.location.href = '../dashboard.html';
+    window.location.href = '../index.html';
   } catch (e) {
     showError(friendlyError(e.message));
     setLoading('btn-signin', false);

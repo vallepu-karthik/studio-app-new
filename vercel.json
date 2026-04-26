@@ -1,8 +1,8 @@
 {
   "version": 2,
   "rewrites": [
-    { "source": "/", "destination": "/landing.html" },
-    { "source": "/app", "destination": "/dashboard.html" },
-    { "source": "/app/(.*)", "destination": "/$1" }
+    { "source": "/app", "destination": "/index.html" },
+    { "source": "/app/(.*)", "destination": "/$1" },
+    { "source": "/", "destination": "/landing.html" }
   ]
 }

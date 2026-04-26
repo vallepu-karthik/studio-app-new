@@ -8,7 +8,7 @@ function renderNav(activePage, basePath) {
   applyTheme();
 
   var nav = [
-    { id:'dashboard', label:'Dashboard',  href: b + 'dashboard.html',         dot:'#639922' },
+    { id:'dashboard', label:'Dashboard',  href: b + 'index.html',         dot:'#639922' },
     { id:'quotes',    label:'Quotations', href: b + 'pages/quotes.html',   dot:'#378ADD' },
     { id:'invoices',  label:'Invoices',   href: b + 'pages/invoices.html', dot:'#BA7517' },
     { id:'clients',   label:'Clients',    href: b + 'pages/clients.html',  dot:'#1D9E75' },
