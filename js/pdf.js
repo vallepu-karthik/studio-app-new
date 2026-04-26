@@ -421,8 +421,33 @@ function drawTermsPage(doc, s, ref, dateStr, clientName) {
    GENERATE QUOTE PDF
 ══════════════════════════════════════════════════════ */
 function generateQuotePDF(quote) {
-  var s=getSettings();
-  prepareImages(s, function(s){ _genQuote(quote,s); });
+  try {
+    console.log('[PDF] generateQuotePDF called', quote);
+    if (typeof jspdf === 'undefined') {
+      console.error('[PDF] jsPDF library not loaded — check CDN script tag');
+      if (typeof showToast === 'function') showToast('PDF library not loaded. Check internet connection.');
+      return;
+    }
+    if (typeof getSettings !== 'function') {
+      console.error('[PDF] getSettings() not found — core.js may not have loaded');
+      if (typeof showToast === 'function') showToast('App error: core.js not loaded.');
+      return;
+    }
+    var s = getSettings();
+    console.log('[PDF] settings loaded', s);
+    prepareImages(s, function(s) {
+      try {
+        _genQuote(quote, s);
+        console.log('[PDF] Quote PDF generated successfully');
+      } catch(e) {
+        console.error('[PDF] _genQuote failed:', e);
+        if (typeof showToast === 'function') showToast('PDF generation failed: ' + e.message);
+      }
+    });
+  } catch(e) {
+    console.error('[PDF] generateQuotePDF outer error:', e);
+    if (typeof showToast === 'function') showToast('PDF error: ' + e.message);
+  }
 }
 
 function _genQuote(quote, s) {
@@ -458,8 +483,33 @@ function _genQuote(quote, s) {
    GENERATE INVOICE PDF
 ══════════════════════════════════════════════════════ */
 function generateInvoicePDF(invoice) {
-  var s=getSettings();
-  prepareImages(s, function(s){ _genInvoice(invoice,s); });
+  try {
+    console.log('[PDF] generateInvoicePDF called', invoice);
+    if (typeof jspdf === 'undefined') {
+      console.error('[PDF] jsPDF library not loaded — check CDN script tag');
+      if (typeof showToast === 'function') showToast('PDF library not loaded. Check internet connection.');
+      return;
+    }
+    if (typeof getSettings !== 'function') {
+      console.error('[PDF] getSettings() not found — core.js may not have loaded');
+      if (typeof showToast === 'function') showToast('App error: core.js not loaded.');
+      return;
+    }
+    var s = getSettings();
+    console.log('[PDF] settings loaded', s);
+    prepareImages(s, function(s) {
+      try {
+        _genInvoice(invoice, s);
+        console.log('[PDF] Invoice PDF generated successfully');
+      } catch(e) {
+        console.error('[PDF] _genInvoice failed:', e);
+        if (typeof showToast === 'function') showToast('PDF generation failed: ' + e.message);
+      }
+    });
+  } catch(e) {
+    console.error('[PDF] generateInvoicePDF outer error:', e);
+    if (typeof showToast === 'function') showToast('PDF error: ' + e.message);
+  }
 }
 
 function _genInvoice(invoice, s) {

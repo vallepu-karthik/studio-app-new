@@ -833,16 +833,23 @@ function deleteCurrentInvoice() {
 
 // ─── WHATSAPP SHARE ─────────────────────────────────────
 function previewInvoice() {
-  if (!currentId && !trackInvoice()) return;
-  const inv = buildInvoice(currentId ? (getInvoiceById(currentId)?.status || 'pending') : 'pending');
-  currentId = inv.id;
-  saveInvoice(inv);
-  document.getElementById('btn-del').style.display = 'inline-flex';
-
-  const s = getSettings();
-  document.getElementById('preview-modal-title').textContent = 'Preview — ' + inv.ref;
-  document.getElementById('preview-modal-body').innerHTML = buildPreviewHTML(inv, s, 'invoice');
-  document.getElementById('preview-modal').classList.add('open');
+  try {
+    const status = currentId ? (getInvoiceById(currentId)?.status || 'pending') : 'pending';
+    const inv = buildInvoice(status);
+    if (!inv.clientName) { showToast('Add a client name to preview.'); return; }
+    if (currentId || trackInvoice()) {
+      currentId = inv.id;
+      saveInvoice(inv);
+      document.getElementById('btn-del').style.display = 'inline-flex';
+    }
+    const s = getSettings();
+    document.getElementById('preview-modal-title').textContent = 'Preview — ' + inv.ref;
+    document.getElementById('preview-modal-body').innerHTML = buildPreviewHTML(inv, s, 'invoice');
+    document.getElementById('preview-modal').classList.add('open');
+  } catch(e) {
+    console.error('[Preview] error:', e);
+    showToast('Could not open preview. Please try again.');
+  }
 }
 
 function closePreviewModal() {
@@ -1076,12 +1083,24 @@ function buildPreviewHTML(doc, settings, type) {
 }
 
 function downloadPDF() {
-  if (!currentId && !trackInvoice()) return;
-  const inv = buildInvoice(currentId ? (getInvoiceById(currentId)?.status || 'pending') : 'pending');
-  currentId = inv.id;
-  saveInvoice(inv);
-  document.getElementById('btn-del').style.display = 'inline-flex';
-  generateInvoicePDF(inv);
+  try {
+    const status = currentId ? (getInvoiceById(currentId)?.status || 'pending') : 'pending';
+    const inv = buildInvoice(status);
+    if (!inv.clientName) { showToast('Add a client name before downloading.'); return; }
+    if (!inv.lineItems || !inv.lineItems.length) { showToast('Add at least one line item before downloading.'); return; }
+    if (!currentId && !trackInvoice()) {
+      // Trial over — still generate PDF without saving
+      generateInvoicePDF(inv);
+      return;
+    }
+    currentId = inv.id;
+    saveInvoice(inv);
+    document.getElementById('btn-del').style.display = 'inline-flex';
+    generateInvoicePDF(inv);
+  } catch(e) {
+    console.error('[PDF] downloadPDF error:', e);
+    showToast('Could not generate PDF. Please try again.');
+  }
 }
 
 function shareWhatsApp() {
@@ -1138,6 +1157,26 @@ function esc(s) {
     <div id="preview-modal-body" style="border:1px solid var(--border);border-radius:8px;overflow:hidden"></div>
   </div>
 </div>
+
+
+// ── PDF dependency self-test (runs on load, check browser console) ──
+window.addEventListener('load', function() {
+  var checks = [
+    ['jsPDF CDN loaded',     typeof jspdf !== 'undefined'],
+    ['getSettings()',        typeof getSettings === 'function'],
+    ['generateQuotePDF()',   typeof generateQuotePDF === 'function'],
+    ['generateInvoicePDF()', typeof generateInvoicePDF === 'function'],
+    ['formatDate()',         typeof formatDate === 'function'],
+    ['Store object',         typeof Store !== 'undefined'],
+  ];
+  var allOk = true;
+  checks.forEach(function(c) {
+    if (!c[1]) { console.error('[PDF-CHECK] MISSING:', c[0]); allOk = false; }
+    else { console.log('[PDF-CHECK] OK:', c[0]); }
+  });
+  if (allOk) console.log('[PDF-CHECK] All dependencies loaded ✓');
+  else console.error('[PDF-CHECK] Some dependencies missing — PDF will not work');
+});
 
 </body>
 </html>

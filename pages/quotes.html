@@ -789,16 +789,24 @@ function deleteCurrentQuote() {
 
 // ─── WHATSAPP SHARE ─────────────────────────────────────
 function previewQuote() {
-  if (!currentId && !trackQuote()) return;
-  const q = buildQuote(currentId ? (getQuoteById(currentId)?.status || 'draft') : 'draft');
-  currentId = q.id;
-  saveQuote(q);
-  document.getElementById('btn-del').style.display = 'inline-flex';
-
-  const s = getSettings();
-  document.getElementById('preview-modal-title').textContent = 'Preview — ' + q.ref;
-  document.getElementById('preview-modal-body').innerHTML = buildPreviewHTML(q, s, 'quote');
-  document.getElementById('preview-modal').classList.add('open');
+  try {
+    const status = currentId ? (getQuoteById(currentId)?.status || 'draft') : 'draft';
+    const q = buildQuote(status);
+    if (!q.clientName) { showToast('Add a client name to preview.'); return; }
+    // Save only if within trial limits — preview always works regardless
+    if (currentId || trackQuote()) {
+      currentId = q.id;
+      saveQuote(q);
+      document.getElementById('btn-del').style.display = 'inline-flex';
+    }
+    const s = getSettings();
+    document.getElementById('preview-modal-title').textContent = 'Preview — ' + q.ref;
+    document.getElementById('preview-modal-body').innerHTML = buildPreviewHTML(q, s, 'quote');
+    document.getElementById('preview-modal').classList.add('open');
+  } catch(e) {
+    console.error('[Preview] error:', e);
+    showToast('Could not open preview. Please try again.');
+  }
 }
 
 function closePreviewModal() {
@@ -806,12 +814,27 @@ function closePreviewModal() {
 }
 
 function downloadPDF() {
-  if (!currentId && !trackQuote()) return;
-  const q = buildQuote(currentId ? (getQuoteById(currentId)?.status || 'draft') : 'draft');
-  currentId = q.id;
-  saveQuote(q);
-  document.getElementById('btn-del').style.display = 'inline-flex';
-  generateQuotePDF(q);
+  // Build quote from current form state — do NOT gate on trial/trackQuote
+  // (downloading a PDF should always work, even on trial)
+  try {
+    const status = currentId ? (getQuoteById(currentId)?.status || 'draft') : 'draft';
+    const q = buildQuote(status);
+    if (!q.clientName) { showToast('Add a client name before downloading.'); return; }
+    if (!q.lineItems || !q.lineItems.length) { showToast('Add at least one line item before downloading.'); return; }
+    // Save so the PDF matches what's stored
+    if (!currentId && !trackQuote()) {
+      // Trial over — still generate PDF from form data without saving
+      generateQuotePDF(q);
+      return;
+    }
+    currentId = q.id;
+    saveQuote(q);
+    document.getElementById('btn-del').style.display = 'inline-flex';
+    generateQuotePDF(q);
+  } catch(e) {
+    console.error('[PDF] downloadPDF error:', e);
+    showToast('Could not generate PDF. Please try again.');
+  }
 }
 
 function shareWhatsApp() {
@@ -1299,6 +1322,26 @@ function esc(s) {
     <div id="preview-modal-body" style="border:1px solid var(--border);border-radius:8px;overflow:hidden"></div>
   </div>
 </div>
+
+
+// ── PDF dependency self-test (runs on load, check browser console) ──
+window.addEventListener('load', function() {
+  var checks = [
+    ['jsPDF CDN loaded',     typeof jspdf !== 'undefined'],
+    ['getSettings()',        typeof getSettings === 'function'],
+    ['generateQuotePDF()',   typeof generateQuotePDF === 'function'],
+    ['generateInvoicePDF()', typeof generateInvoicePDF === 'function'],
+    ['formatDate()',         typeof formatDate === 'function'],
+    ['Store object',         typeof Store !== 'undefined'],
+  ];
+  var allOk = true;
+  checks.forEach(function(c) {
+    if (!c[1]) { console.error('[PDF-CHECK] MISSING:', c[0]); allOk = false; }
+    else { console.log('[PDF-CHECK] OK:', c[0]); }
+  });
+  if (allOk) console.log('[PDF-CHECK] All dependencies loaded ✓');
+  else console.error('[PDF-CHECK] Some dependencies missing — PDF will not work');
+});
 
 </body>
 </html>
