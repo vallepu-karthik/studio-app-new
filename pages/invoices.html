@@ -108,8 +108,18 @@
       .milestone-summary { grid-template-columns: 1fr 1fr; }
     }
   </style>
+  <script>
+    /* Anti-FOUC: apply theme before first paint to prevent light flash */
+    (function() {
+      try {
+        var s = JSON.parse(localStorage.getItem('sa_settings_v1') || '{}');
+        if (s.theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
+<div id="offline-banner">You're offline &mdash; changes are saved locally and will sync when reconnected.</div>
 <div class="app-shell">
   <aside class="sidebar" id="sidebar"></aside>
   <main class="main-area">
@@ -365,10 +375,13 @@
 <div id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="../js/env.js"></script>
+<script src="../js/sanitize.js"></script>
 <script src="../js/core.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="../js/supabase.js"></script>
-  <script src="../js/auth.js"></script>
+<script src="../js/sync.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../js/supabase.js"></script>
+<script src="../js/auth.js"></script>
 <script src="../js/nav.js"></script>
 <script src="../js/pdf.js"></script>
 <script>
@@ -393,6 +406,8 @@ function defaultMilestones(total) {
 initAuth('../').then(ok => {
   if (!ok) return;
   renderNav('invoices', '../');
+  initOfflineDetector();
+    window.__syncRefresh = typeof renderList === \'function\' ? renderList : null;
   initLimitBanner();
   const params = new URLSearchParams(window.location.search);
   if (params.get('new') === '1') openForm();
@@ -439,7 +454,7 @@ function renderList() {
          <a class="action-link" onclick="openForm('${inv.id}')">Edit</a>`;
     return `<tr>
       <td><a class="action-link" onclick="openForm('${inv.id}')">${inv.ref}</a></td>
-      <td>${inv.clientName || '—'}</td>
+      <td>${esc(inv.clientName) || '—'}</td>
       <td>${formatDate(inv.invoiceDate)}</td>
       <td style="${inv._overdue?'color:#e53e3e':''}">${formatDate(inv.dueDate)}</td>
       <td>${fmtINR(inv.total||0)}</td>
@@ -564,12 +579,12 @@ function renderLines() {
         </select>
       </td>
       <td class="col-qty">
-        <input type="number" value="${item.qty}" min="1" style="text-align:center"
-          oninput="lineItems[${i}].qty=+this.value||1;updateTotalsUI()">
+        <input type="number" value="${item.qty}" min="0.01" step="0.01" style="text-align:center"
+          oninput="lineItems[${i}].qty=Math.max(0.01,+this.value||0.01);this.value=lineItems[${i}].qty;updateTotalsUI()">
       </td>
       <td class="col-rate">
-        <input type="number" value="${item.rate}" min="0" placeholder="0"
-          oninput="lineItems[${i}].rate=+this.value||0;updateTotalsUI()">
+        <input type="number" value="${item.rate}" min="0" step="1" placeholder="0"
+          oninput="lineItems[${i}].rate=Math.max(0,+this.value||0);this.value=lineItems[${i}].rate;updateTotalsUI()">
       </td>
       <td class="col-amt">${fmtINR(item.qty * item.rate)}</td>
       <td class="col-del">
@@ -726,6 +741,28 @@ function pickClient(name, contact) {
 }
 function hideAC() { setTimeout(() => { document.getElementById('ac-list').style.display = 'none'; }, 150); }
 
+
+// ─── VALIDATION ─────────────────────────────────────────
+function validateBeforeSave() {
+  const clientName = document.getElementById('f-client-name').value.trim();
+  if (!clientName) {
+    showToast('Client name is required before saving.');
+    document.getElementById('f-client-name').focus();
+    return false;
+  }
+  const hasItem = lineItems.some(i => i.desc.trim().length > 0);
+  if (!hasItem) {
+    showToast('Add at least one line item with a description.');
+    return false;
+  }
+  const allPositive = lineItems.every(i => i.qty > 0 && i.rate >= 0);
+  if (!allPositive) {
+    showToast('Line item quantities must be greater than zero.');
+    return false;
+  }
+  return true;
+}
+
 // ─── BUILD INVOICE OBJECT ────────────────────────────────
 function buildInvoice(status) {
   const rate = +document.getElementById('f-gst').value;
@@ -766,6 +803,7 @@ function buildInvoice(status) {
 
 // ─── SAVE ACTIONS ───────────────────────────────────────
 function saveInvoiceForm(status) {
+  if (!validateBeforeSave()) return;
   if (!currentId && !trackInvoice()) return;
   const inv = buildInvoice(status);
   currentId = inv.id;

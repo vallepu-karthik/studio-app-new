@@ -22,8 +22,18 @@
     .pkg-item-row input { padding:5px 7px; font-size:12px; border:1px solid #e5e5e5; border-radius:6px; font-family:inherit; width:100%; }
     .pkg-item-row input:focus { outline:none; border-color:#1a1a1a; }
   </style>
+  <script>
+    /* Anti-FOUC: apply theme before first paint to prevent light flash */
+    (function() {
+      try {
+        var s = JSON.parse(localStorage.getItem('sa_settings_v1') || '{}');
+        if (s.theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
+<div id="offline-banner">You're offline &mdash; changes are saved locally and will sync when reconnected.</div>
 <div class="app-shell">
   <aside class="sidebar" id="sidebar"></aside>
   <main class="main-area">
@@ -84,7 +94,7 @@
               <input type="tel" id="phone" placeholder="+91 98001 12345">
             </div>
             <div class="form-group">
-              <label>Email</label>
+              <label>Email <span style="font-size:11px;font-weight:400;color:#639922;margin-left:4px">&#x2713; used for quote-accepted notifications</span></label>
               <input type="email" id="email" placeholder="hello@yourstudio.in">
             </div>
             <div class="form-group">
@@ -325,15 +335,20 @@
 </div>
 
 <div id="toast"></div>
+<script src="../js/env.js"></script>
+<script src="../js/sanitize.js"></script>
 <script src="../js/core.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="../js/supabase.js"></script>
-  <script src="../js/auth.js"></script>
+<script src="../js/sync.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../js/supabase.js"></script>
+<script src="../js/auth.js"></script>
 <script src="../js/nav.js"></script>
 <script>
   initAuth('../').then(ok => {
     if (!ok) return;
     renderNav('settings', '../');
+  initOfflineDetector();
+    window.__syncRefresh = typeof loadSettings === \'function\' ? loadSettings : null;
     initLimitBanner();
     loadSettings();
     renderSettingsPkgs();
@@ -442,7 +457,23 @@
   function handleLogoUpload(input) {
     const file = input.files[0];
     if (!file) return;
-    if (file.size > 300000) { showToast('Logo must be under 300KB'); return; }
+
+    // FIX-11: Validate file type before reading
+    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      showToast('Please upload a JPG, PNG, WebP, or GIF image.');
+      input.value = '';
+      return;
+    }
+
+    // FIX-11: Validate file size (2MB max — generous for a logo)
+    const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+    if (file.size > MAX_SIZE) {
+      showToast('Logo must be under 2MB. Try compressing the image first.');
+      input.value = '';
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = function(e) {
       const b64 = e.target.result;
@@ -452,7 +483,11 @@
       document.getElementById('logo-placeholder').style.display = 'none';
       document.getElementById('logo-remove-btn').style.display = 'block';
       renderNav('settings', '../');
-      showToast('Logo uploaded');
+      showToast('Logo uploaded successfully.');
+    };
+    reader.onerror = function() {
+      showToast('Could not read the image file. Please try another.');
+      input.value = '';
     };
     reader.readAsDataURL(file);
     input.value = '';

@@ -133,16 +133,26 @@
     }
     .year-nav button:hover { background: var(--bg3); }
   </style>
+  <script>
+    /* Anti-FOUC: apply theme before first paint to prevent light flash */
+    (function() {
+      try {
+        var s = JSON.parse(localStorage.getItem('sa_settings_v1') || '{}');
+        if (s.theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      } catch(e) {}
+    })();
+  </script>
 </head>
 <body>
-<div class="app-layout">
+<div id="offline-banner">You're offline &mdash; changes are saved locally and will sync when reconnected.</div>
+<div class="app-shell">
   <nav class="sidebar" id="sidebar"></nav>
-  <main class="main-content">
+  <main class="main-area">
     <div class="page-header">
       <h1>Reports</h1>
       <div class="year-nav">
         <button onclick="changeYear(-1)">&#8592;</button>
-        <span id="year-label">2025</span>
+        <span id="year-label"></span>
         <button onclick="changeYear(+1)">&#8594;</button>
       </div>
     </div>
@@ -188,10 +198,13 @@
 </div>
 
 <div id="toast"></div>
+<script src="../js/env.js"></script>
+<script src="../js/sanitize.js"></script>
 <script src="../js/core.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="../js/supabase.js"></script>
-  <script src="../js/auth.js"></script>
+<script src="../js/sync.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../js/supabase.js"></script>
+<script src="../js/auth.js"></script>
 <script src="../js/nav.js"></script>
 <script>
 'use strict';
@@ -225,6 +238,7 @@ function isoMonth(dateStr) {
 
 // ── Main render ───────────────────────────────────────────
 function render() {
+  document.getElementById('year-label').textContent = _year;
   const quotes   = getQuotes();
   const invoices = getInvoices();
 
@@ -293,7 +307,7 @@ function renderRevenueChart(yearInvoices) {
   const el  = document.getElementById('revenue-chart');
 
   if (monthly.every(v => v === 0)) {
-    el.parentElement.innerHTML = '<h3>Monthly Revenue (Invoices Paid)</h3><div class="chart-empty">No paid invoices in ' + _year + '</div>';
+    el.innerHTML = '<div class="chart-empty">No paid invoices in ' + _year + '</div>';
     return;
   }
 
@@ -320,7 +334,7 @@ function renderQuotesChart(yearQuotes) {
   const el  = document.getElementById('quotes-chart');
 
   if (yearQuotes.length === 0) {
-    el.parentElement.innerHTML = '<h3>Monthly Quotes Sent</h3><div class="chart-empty">No quotes in ' + _year + '</div>';
+    el.innerHTML = '<div class="chart-empty">No quotes in ' + _year + '</div>';
     return;
   }
 
@@ -350,33 +364,27 @@ function renderStatusDonut(yearQuotes) {
   const COLORS = { draft:'#94a3b8', sent:'#3b82f6', accepted:'#22c55e', expired:'#ef4444' };
   const LABELS = { draft:'Draft', sent:'Sent', accepted:'Accepted', expired:'Expired' };
 
-  // Build SVG donut
-  const r = 48, cx = 60, cy = 60, stroke = 18;
+  // Build proper stroke-dasharray donut ring
+  const r = 40, cx = 60, cy = 60, strokeW = 18;
   const circumference = 2 * Math.PI * r;
-  let offset = 0;
   let arcs = '';
+  let dashOffset = circumference / 4; // start from top
 
-  // Start from top (-90deg = -circumference/4 offset trick via strokeDashoffset)
-  let cumAngle = -Math.PI / 2;
   ['accepted','sent','draft','expired'].forEach(status => {
     const count = counts[status];
     if (count === 0) return;
-    const pct   = count / total;
-    const angle = pct * 2 * Math.PI;
-    const x1 = cx + r * Math.cos(cumAngle);
-    const y1 = cy + r * Math.sin(cumAngle);
-    cumAngle += angle;
-    const x2 = cx + r * Math.cos(cumAngle);
-    const y2 = cy + r * Math.sin(cumAngle);
-    const large = angle > Math.PI ? 1 : 0;
-    arcs += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${large},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z"
-      fill="${COLORS[status]}" opacity="0.85"/>`;
+    const pct  = count / total;
+    const dash = pct * circumference;
+    arcs += `<circle cx="${cx}" cy="${cy}" r="${r}"
+      fill="none" stroke="${COLORS[status]}" stroke-width="${strokeW}"
+      stroke-dasharray="${dash.toFixed(2)} ${(circumference - dash).toFixed(2)}"
+      stroke-dashoffset="${dashOffset.toFixed(2)}" opacity="0.9"/>`;
+    dashOffset -= dash;
   });
 
   const svg = `<svg class="donut-svg" width="120" height="120" viewBox="0 0 120 120">
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--bg2)"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--bg2)" stroke-width="${strokeW}"/>
     ${arcs}
-    <circle cx="${cx}" cy="${cy}" r="${r - stroke}" fill="var(--bg1)"/>
     <text x="${cx}" y="${cy - 6}" text-anchor="middle" font-size="18" font-weight="800" fill="var(--text1)">${total}</text>
     <text x="${cx}" y="${cy + 10}" text-anchor="middle" font-size="9" fill="var(--text3)">quotes</text>
   </svg>`;
@@ -476,6 +484,8 @@ function esc(s) {
 initAuth('../').then(ok => {
   if (!ok) return;
   renderNav('reports', '../');
+  initOfflineDetector();
+    window.__syncRefresh = typeof render === \'function\' ? render : null;
   autoExpireQuotes();
   render();
 });
