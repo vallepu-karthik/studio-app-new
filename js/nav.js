@@ -12,6 +12,7 @@ function renderNav(activePage, basePath) {
     { id:'quotes',    label:'Quotations', href: b + 'pages/quotes.html',   dot:'#378ADD' },
     { id:'invoices',  label:'Invoices',   href: b + 'pages/invoices.html', dot:'#BA7517' },
     { id:'clients',   label:'Clients',    href: b + 'pages/clients.html',  dot:'#1D9E75' },
+    { id:'analytics', label:'Analytics',  href: b + 'pages/analytics.html',dot:'#D85A30' },
     { id:'reports',   label:'Reports',    href: b + 'pages/reports.html',  dot:'#7C3AED' },
     { id:'settings',  label:'Settings',   href: b + 'pages/settings.html', dot:'#888780' },
   ];

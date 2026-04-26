@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a1a1a">
+  <title>Analytics — Studio App</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* ── Period tabs ── */
+    .period-bar {
+      display: flex; gap: 6px; margin-bottom: 1.5rem; flex-wrap: wrap;
+      align-items: center;
+    }
+    .period-tab {
+      padding: 5px 14px; font-size: 12px; font-weight: 500;
+      border: 1px solid var(--border); background: var(--bg2);
+      color: var(--text2); border-radius: 20px; cursor: pointer;
+      transition: all .15s;
+    }
+    .period-tab.active {
+      background: var(--text); color: var(--bg2); border-color: var(--text);
+    }
+    .period-bar-right { margin-left: auto; }
+
+    /* ── KPI row ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-bottom: 1.25rem;
+    }
+    @media (max-width: 860px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    .kpi-card {
+      background: var(--stat-bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: .9rem 1rem;
+    }
+    .kpi-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .04em; margin-bottom: .3rem; }
+    .kpi-value { font-size: 22px; font-weight: 700; color: var(--text); line-height: 1; }
+    .kpi-sub   { font-size: 11px; color: var(--text3); margin-top: .25rem; }
+    .kpi-up    { color: #1d6f42; }
+    .kpi-down  { color: #9b1c1c; }
+
+    /* ── Chart grid ── */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .chart-grid.full { grid-template-columns: 1fr; }
+    @media (max-width: 760px) { .chart-grid { grid-template-columns: 1fr; } }
+
+    .chart-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.1rem 1.25rem;
+    }
+    .chart-title {
+      font-size: 13px; font-weight: 600; color: var(--text);
+      margin-bottom: .2rem;
+    }
+    .chart-sub {
+      font-size: 11px; color: var(--text3); margin-bottom: 1rem;
+    }
+    .chart-wrap { position: relative; width: 100%; }
+
+    /* ── Insight cards ── */
+    .insight-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+    @media (max-width: 760px) { .insight-grid { grid-template-columns: 1fr; } }
+    .insight-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1rem;
+    }
+    .insight-icon { font-size: 20px; margin-bottom: .5rem; }
+    .insight-heading { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .04em; margin-bottom: .35rem; }
+    .insight-value { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.1; margin-bottom: .25rem; }
+    .insight-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
+
+    /* ── Top packages table ── */
+    .pkg-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .pkg-table th {
+      font-size: 11px; font-weight: 600; color: var(--text3);
+      text-transform: uppercase; letter-spacing: .04em;
+      padding: 0 8px 8px 0; border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+    .pkg-table td {
+      padding: 9px 8px 9px 0; border-bottom: 1px solid var(--border2);
+      color: var(--text); vertical-align: middle;
+    }
+    .pkg-table tr:last-child td { border-bottom: none; }
+    .pkg-bar-wrap { background: var(--border); border-radius: 4px; height: 6px; width: 100%; overflow: hidden; }
+    .pkg-bar-fill { height: 6px; border-radius: 4px; background: #185fa5; transition: width .4s; }
+
+    /* ── Client table ── */
+    .client-rank { font-size: 11px; font-weight: 700; color: var(--text3); width: 24px; }
+    .client-name-cell { font-weight: 500; }
+    .client-count { font-size: 12px; color: var(--text3); }
+
+    /* ── Month heat row ── */
+    .heat-row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; margin-top: .75rem; }
+    .heat-cell {
+      border-radius: 6px; aspect-ratio: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; cursor: default;
+      transition: transform .1s;
+    }
+    .heat-cell:hover { transform: scale(1.08); }
+    .heat-cell .hc-month { font-size: 9px; color: var(--text3); font-weight: 500; margin-bottom: 2px; }
+    .heat-cell .hc-val   { font-size: 12px; font-weight: 700; color: var(--text); }
+    .heat-0 { background: var(--stat-bg); border: 1px solid var(--border); }
+    .heat-1 { background: #dbeafe; }
+    .heat-2 { background: #93c5fd; }
+    .heat-3 { background: #3b82f6; }
+    .heat-4 { background: #1d4ed8; }
+    html[data-theme="dark"] .heat-1 { background: #1e3a5f; }
+    html[data-theme="dark"] .heat-2 { background: #1e4a7f; }
+    html[data-theme="dark"] .heat-3 { background: #1a5aaa; }
+    html[data-theme="dark"] .heat-4 { background: #1458c4; }
+    html[data-theme="dark"] .heat-1 .hc-val,
+    html[data-theme="dark"] .heat-2 .hc-val,
+    html[data-theme="dark"] .heat-3 .hc-val,
+    html[data-theme="dark"] .heat-4 .hc-val { color: #e0eeff; }
+
+    /* ── Empty state ── */
+    .analytics-empty {
+      text-align: center; padding: 3rem 1rem; color: var(--text3);
+    }
+    .analytics-empty h3 { font-size: 15px; font-weight: 600; color: var(--text2); margin-bottom: .4rem; }
+    .analytics-empty p  { font-size: 13px; }
+
+    /* ── Export btn ── */
+    .export-btn {
+      font-size: 12px; padding: 5px 12px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--bg2); color: var(--text2); cursor: pointer;
+      transition: background .15s;
+    }
+    .export-btn:hover { background: var(--hover-bg); }
+
+    /* ── Section label ── */
+    .section-label {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .06em; color: var(--text3); margin-bottom: .75rem;
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main-area">
+    <div class="page">
+
+      <div class="limit-banner" id="limit-banner"></div>
+
+      <div class="page-header">
+        <h1>Analytics</h1>
+        <button class="export-btn" onclick="exportCSV()">Export CSV</button>
+      </div>
+
+      <!-- Period selector -->
+      <div class="period-bar">
+        <button class="period-tab active" data-period="fy"   onclick="setPeriod('fy')">This FY</button>
+        <button class="period-tab"        data-period="ly"   onclick="setPeriod('ly')">Last FY</button>
+        <button class="period-tab"        data-period="3m"   onclick="setPeriod('3m')">Last 3 months</button>
+        <button class="period-tab"        data-period="all"  onclick="setPeriod('all')">All time</button>
+        <span id="period-label" style="font-size:12px;color:var(--text3);margin-left:4px"></span>
+      </div>
+
+      <!-- KPI row -->
+      <div class="kpi-grid" id="kpi-grid"></div>
+
+      <!-- Charts row 1: Revenue by month + Quote funnel -->
+      <div class="chart-grid" id="chart-grid-1">
+        <div class="chart-card">
+          <div class="chart-title">Revenue by month</div>
+          <div class="chart-sub" id="rev-sub">Paid invoices</div>
+          <div class="chart-wrap" style="height:200px">
+            <canvas id="chart-revenue" role="img" aria-label="Monthly revenue bar chart">Monthly revenue data.</canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Quote funnel</div>
+          <div class="chart-sub">Draft → Sent → Accepted → Invoiced</div>
+          <div class="chart-wrap" style="height:200px">
+            <canvas id="chart-funnel" role="img" aria-label="Quote conversion funnel">Quote funnel data.</canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Busiest months heatmap -->
+      <div class="chart-card" style="margin-bottom:1rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.2rem">
+          <div class="chart-title">Busiest months</div>
+          <div style="font-size:11px;color:var(--text3)">by number of shoots</div>
+        </div>
+        <div class="chart-sub">Quotes with an event date — plan your availability</div>
+        <div class="heat-row" id="heat-row"></div>
+      </div>
+
+      <!-- Charts row 2: Package popularity + Top clients -->
+      <div class="chart-grid">
+
+        <div class="chart-card">
+          <div class="chart-title">Package popularity</div>
+          <div class="chart-sub">Most-used packages in accepted quotes</div>
+          <div id="pkg-table-wrap"></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">Top clients</div>
+          <div class="chart-sub">By total invoiced value</div>
+          <div id="top-clients-wrap"></div>
+        </div>
+
+      </div>
+
+      <!-- Insight row -->
+      <div class="section-label">Key insights</div>
+      <div class="insight-grid" id="insight-grid"></div>
+
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script src="../js/core.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../js/supabase.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/nav.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+
+<script>
+'use strict';
+
+// ── Chart instances (destroy before re-creating) ──────────
+let _chartRev = null, _chartFunnel = null;
+
+// ── Period state ──────────────────────────────────────────
+let _period = 'fy';
+
+function setPeriod(p) {
+  _period = p;
+  document.querySelectorAll('.period-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.period === p));
+  renderAll();
+}
+
+// Returns {from, to} Date objects for current period
+function periodRange() {
+  const now  = new Date();
+  const year = now.getFullYear();
+  const mon  = now.getMonth(); // 0-based
+
+  if (_period === 'fy') {
+    // Indian FY: Apr 1 – Mar 31
+    const fyStart = mon >= 3 ? new Date(year, 3, 1) : new Date(year - 1, 3, 1);
+    const fyEnd   = new Date(fyStart.getFullYear() + 1, 2, 31, 23, 59, 59);
+    return { from: fyStart, to: fyEnd };
+  }
+  if (_period === 'ly') {
+    const fyStart = mon >= 3 ? new Date(year - 1, 3, 1) : new Date(year - 2, 3, 1);
+    const fyEnd   = new Date(fyStart.getFullYear() + 1, 2, 31, 23, 59, 59);
+    return { from: fyStart, to: fyEnd };
+  }
+  if (_period === '3m') {
+    const from = new Date(now); from.setMonth(from.getMonth() - 3); from.setHours(0,0,0,0);
+    return { from, to: now };
+  }
+  // all
+  return { from: new Date(0), to: now };
+}
+
+function inPeriod(ts) {
+  if (!ts) return false;
+  const { from, to } = periodRange();
+  const d = new Date(ts);
+  return d >= from && d <= to;
+}
+
+function periodLabel() {
+  const { from, to } = periodRange();
+  if (_period === 'all') return 'All time';
+  const fmt = d => d.toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'2-digit' });
+  return fmt(from) + ' – ' + fmt(to);
+}
+
+// ── Filtered data ─────────────────────────────────────────
+function filteredQuotes() {
+  return getQuotes().filter(q => inPeriod(q.createdAt));
+}
+function filteredInvoices() {
+  return getInvoices().filter(i => inPeriod(i.createdAt));
+}
+
+// ── Main render ───────────────────────────────────────────
+function renderAll() {
+  document.getElementById('period-label').textContent = periodLabel();
+  renderKPIs();
+  renderRevenueChart();
+  renderFunnelChart();
+  renderHeatmap();
+  renderPackages();
+  renderTopClients();
+  renderInsights();
+}
+
+// ── KPIs ──────────────────────────────────────────────────
+function renderKPIs() {
+  const quotes   = filteredQuotes();
+  const invoices = filteredInvoices();
+
+  const totalRevenue = invoices
+    .filter(i => i.status === 'paid')
+    .reduce((s, i) => s + (i.total || 0), 0);
+
+  const sent     = quotes.filter(q => q.status !== 'draft').length;
+  const accepted = quotes.filter(q => q.status === 'accepted' || q.convertedToInvoice).length;
+  const acceptRate = sent > 0 ? Math.round((accepted / sent) * 100) : 0;
+
+  const avgQuote = quotes.length > 0
+    ? Math.round(quotes.reduce((s, q) => s + (q.total || 0), 0) / quotes.length)
+    : 0;
+
+  // Retention: clients with 2+ accepted quotes (all time, not period-filtered)
+  const allQuotes = getQuotes();
+  const clientQuoteCounts = {};
+  allQuotes.filter(q => q.status === 'accepted' || q.convertedToInvoice).forEach(q => {
+    const k = (q.clientName || '').toLowerCase().trim();
+    if (k) clientQuoteCounts[k] = (clientQuoteCounts[k] || 0) + 1;
+  });
+  const repeatClients = Object.values(clientQuoteCounts).filter(c => c >= 2).length;
+  const totalClients  = Object.keys(clientQuoteCounts).length;
+  const retentionRate = totalClients > 0 ? Math.round((repeatClients / totalClients) * 100) : 0;
+
+  const outstandingAmt = getInvoices()
+    .filter(i => i.status !== 'paid')
+    .reduce((s, i) => s + (i.total || 0), 0);
+
+  const kpis = [
+    { label: 'Revenue', value: fmtINR(totalRevenue), sub: 'from paid invoices' },
+    { label: 'Avg quote value', value: fmtINR(avgQuote), sub: quotes.length + ' quotes' },
+    { label: 'Acceptance rate', value: acceptRate + '%', sub: accepted + ' of ' + sent + ' sent' },
+    { label: 'Client retention', value: retentionRate + '%', sub: repeatClients + ' repeat clients' },
+    { label: 'Outstanding', value: fmtINR(outstandingAmt), sub: 'unpaid invoices' },
+  ];
+
+  document.getElementById('kpi-grid').innerHTML = kpis.map(k => `
+    <div class="kpi-card">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>`).join('');
+}
+
+// ── Revenue by month chart ────────────────────────────────
+function renderRevenueChart() {
+  const { from } = periodRange();
+  const invoices = filteredInvoices().filter(i => i.status === 'paid');
+
+  // Build month buckets
+  const months = _period === '3m' ? 3 : 12;
+  const labels = [], data = [];
+
+  for (let i = 0; i < months; i++) {
+    const d = new Date(from);
+    d.setMonth(d.getMonth() + i);
+    labels.push(d.toLocaleDateString('en-IN', { month: 'short', year: _period === 'all' ? '2-digit' : undefined }));
+    const mon = d.getMonth(), yr = d.getFullYear();
+    const total = invoices
+      .filter(inv => {
+        const dd = new Date(inv.updatedAt || inv.createdAt || 0);
+        return dd.getMonth() === mon && dd.getFullYear() === yr;
+      })
+      .reduce((s, inv) => s + (inv.total || 0), 0);
+    data.push(total);
+  }
+
+  if (_chartRev) _chartRev.destroy();
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const gridColor = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+  const textColor = isDark ? '#888' : '#aaa';
+
+  _chartRev = new Chart(document.getElementById('chart-revenue'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Revenue',
+        data,
+        backgroundColor: '#185fa5',
+        borderRadius: 4,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: textColor, font: { size: 11 } } },
+        y: {
+          grid: { color: gridColor },
+          ticks: {
+            color: textColor, font: { size: 11 },
+            callback: v => v >= 100000 ? '₹' + (v/100000).toFixed(1) + 'L' : v >= 1000 ? '₹' + (v/1000).toFixed(0) + 'k' : '₹' + v
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── Quote funnel chart ────────────────────────────────────
+function renderFunnelChart() {
+  const quotes = filteredQuotes();
+  const draft    = quotes.filter(q => q.status === 'draft').length;
+  const sent     = quotes.filter(q => q.status === 'sent' || q.status === 'expired').length;
+  const accepted = quotes.filter(q => q.status === 'accepted').length;
+  const invoiced = quotes.filter(q => q.convertedToInvoice).length;
+
+  if (_chartFunnel) _chartFunnel.destroy();
+  const isDark   = document.documentElement.getAttribute('data-theme') === 'dark';
+  const textColor = isDark ? '#888' : '#aaa';
+  const gridColor = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+
+  _chartFunnel = new Chart(document.getElementById('chart-funnel'), {
+    type: 'bar',
+    data: {
+      labels: ['Draft', 'Sent', 'Accepted', 'Invoiced'],
+      datasets: [{
+        data: [draft, sent, accepted, invoiced],
+        backgroundColor: ['#d1d5db', '#93c5fd', '#6ee7b7', '#34d399'],
+        borderRadius: 4,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: textColor, font: { size: 11 } } },
+        y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 11 }, stepSize: 1 } }
+      }
+    }
+  });
+}
+
+// ── Heatmap (busiest months by event count) ───────────────
+function renderHeatmap() {
+  // Count quotes per calendar month (by event date, all time)
+  const counts = Array(12).fill(0);
+  getQuotes().forEach(q => {
+    if (!q.eventDate) return;
+    const m = new Date(q.eventDate + 'T00:00:00').getMonth();
+    counts[m]++;
+  });
+
+  const max = Math.max(...counts, 1);
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  const heatLevel = n => {
+    if (n === 0) return 'heat-0';
+    const pct = n / max;
+    if (pct < 0.25) return 'heat-1';
+    if (pct < 0.5)  return 'heat-2';
+    if (pct < 0.75) return 'heat-3';
+    return 'heat-4';
+  };
+
+  document.getElementById('heat-row').innerHTML = counts.map((c, i) => `
+    <div class="heat-cell ${heatLevel(c)}" title="${monthNames[i]}: ${c} shoot${c!==1?'s':''}">
+      <div class="hc-month">${monthNames[i]}</div>
+      <div class="hc-val">${c}</div>
+    </div>`).join('');
+}
+
+// ── Package popularity ────────────────────────────────────
+function renderPackages() {
+  const quotes = getQuotes().filter(q => q.status === 'accepted' || q.convertedToInvoice);
+
+  // Count by packageName or fallback 'Custom'
+  const counts = {};
+  const revenue = {};
+  quotes.forEach(q => {
+    const name = q.packageName || 'Custom';
+    counts[name]  = (counts[name]  || 0) + 1;
+    revenue[name] = (revenue[name] || 0) + (q.total || 0);
+  });
+
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 7);
+  const maxCount = sorted.length > 0 ? sorted[0][1] : 1;
+
+  if (sorted.length === 0) {
+    document.getElementById('pkg-table-wrap').innerHTML =
+      '<div style="font-size:13px;color:var(--text3);padding:.5rem 0">No accepted quotes yet</div>';
+    return;
+  }
+
+  document.getElementById('pkg-table-wrap').innerHTML = `
+    <table class="pkg-table">
+      <thead><tr>
+        <th>Package</th>
+        <th style="text-align:right">Quotes</th>
+        <th style="text-align:right">Revenue</th>
+        <th style="width:80px"></th>
+      </tr></thead>
+      <tbody>
+        ${sorted.map(([name, count]) => `
+          <tr>
+            <td style="font-weight:500;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</td>
+            <td style="text-align:right;color:var(--text2)">${count}</td>
+            <td style="text-align:right;color:var(--text2)">${fmtINR(revenue[name] || 0)}</td>
+            <td>
+              <div class="pkg-bar-wrap">
+                <div class="pkg-bar-fill" style="width:${Math.round((count/maxCount)*100)}%"></div>
+              </div>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ── Top clients ───────────────────────────────────────────
+function renderTopClients() {
+  const invoices = getInvoices();
+  const clientRev = {};
+  const clientCount = {};
+
+  invoices.forEach(i => {
+    const k = (i.clientName || 'Unknown').trim();
+    clientRev[k]   = (clientRev[k]   || 0) + (i.total || 0);
+    clientCount[k] = (clientCount[k] || 0) + 1;
+  });
+
+  const sorted = Object.entries(clientRev).sort((a, b) => b[1] - a[1]).slice(0, 7);
+
+  if (sorted.length === 0) {
+    document.getElementById('top-clients-wrap').innerHTML =
+      '<div style="font-size:13px;color:var(--text3);padding:.5rem 0">No invoices yet</div>';
+    return;
+  }
+
+  const COLORS = ['#378ADD','#1D9E75','#D85A30','#7F77DD','#BA7517','#D4537E','#639922'];
+
+  document.getElementById('top-clients-wrap').innerHTML = `
+    <table class="pkg-table">
+      <thead><tr>
+        <th></th>
+        <th>Client</th>
+        <th style="text-align:right">Invoices</th>
+        <th style="text-align:right">Total</th>
+      </tr></thead>
+      <tbody>
+        ${sorted.map(([name, rev], idx) => {
+          const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+          return `<tr>
+            <td style="width:32px">
+              <div style="width:28px;height:28px;border-radius:50%;background:${COLORS[idx%COLORS.length]};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0">
+                ${initials}
+              </div>
+            </td>
+            <td class="client-name-cell">${name}</td>
+            <td style="text-align:right" class="client-count">${clientCount[name]}</td>
+            <td style="text-align:right;font-weight:600">${fmtINR(rev)}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ── Insights row ──────────────────────────────────────────
+function renderInsights() {
+  const quotes   = getQuotes();
+  const invoices = getInvoices();
+
+  // Best month by revenue
+  const revByMonth = {};
+  invoices.filter(i => i.status === 'paid').forEach(i => {
+    const d = new Date(i.updatedAt || i.createdAt || 0);
+    const k = d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+    revByMonth[k] = (revByMonth[k] || 0) + (i.total || 0);
+  });
+  const bestMonthEntry = Object.entries(revByMonth).sort((a, b) => b[1] - a[1])[0];
+  const bestMonth = bestMonthEntry ? bestMonthEntry[0] : '—';
+  const bestMonthRev = bestMonthEntry ? fmtINR(bestMonthEntry[1]) : '—';
+
+  // Avg days to accept
+  const acceptTimes = quotes
+    .filter(q => q.acceptedAt && q.createdAt)
+    .map(q => Math.round((q.acceptedAt - q.createdAt) / 86400000));
+  const avgAcceptDays = acceptTimes.length > 0
+    ? Math.round(acceptTimes.reduce((a, b) => a + b, 0) / acceptTimes.length)
+    : null;
+
+  // Most popular event type
+  const eventTypes = {};
+  quotes.forEach(q => {
+    if (q.eventType) {
+      eventTypes[q.eventType] = (eventTypes[q.eventType] || 0) + 1;
+    }
+  });
+  const topEvent = Object.entries(eventTypes).sort((a, b) => b[1] - a[1])[0];
+
+  // Highest single quote
+  const maxQuote = quotes.reduce((m, q) => (q.total || 0) > m ? (q.total || 0) : m, 0);
+
+  // Quote acceptance rate (all time)
+  const totalSent     = quotes.filter(q => q.status !== 'draft').length;
+  const totalAccepted = quotes.filter(q => q.status === 'accepted' || q.convertedToInvoice).length;
+  const acceptRateAll = totalSent > 0 ? Math.round((totalAccepted / totalSent) * 100) : 0;
+
+  // Avg invoice value
+  const paidInvoices = invoices.filter(i => i.status === 'paid');
+  const avgInvoiceVal = paidInvoices.length > 0
+    ? Math.round(paidInvoices.reduce((s, i) => s + (i.total || 0), 0) / paidInvoices.length)
+    : 0;
+
+  const insights = [
+    {
+      icon: '🏆',
+      heading: 'Best revenue month',
+      value: bestMonth,
+      desc: bestMonthRev !== '—' ? `You earned ${bestMonthRev} in your best month` : 'Start creating invoices to see this',
+    },
+    {
+      icon: '⚡',
+      heading: 'Avg days to accept',
+      value: avgAcceptDays !== null ? avgAcceptDays + (avgAcceptDays === 1 ? ' day' : ' days') : '—',
+      desc: avgAcceptDays !== null
+        ? avgAcceptDays <= 3 ? 'Excellent — clients decide quickly' : avgAcceptDays <= 7 ? 'Good response time' : 'Consider a follow-up reminder'
+        : 'Based on accepted quotes',
+    },
+    {
+      icon: '📸',
+      heading: 'Most popular event',
+      value: topEvent ? topEvent[0] : '—',
+      desc: topEvent ? `${topEvent[1]} quote${topEvent[1]!==1?'s':''} for this event type` : 'Add event types to your quotes',
+    },
+    {
+      icon: '💰',
+      heading: 'Highest quote value',
+      value: maxQuote > 0 ? fmtINR(maxQuote) : '—',
+      desc: 'Your biggest single quote',
+    },
+    {
+      icon: '🎯',
+      heading: 'Overall acceptance rate',
+      value: acceptRateAll + '%',
+      desc: `${totalAccepted} accepted out of ${totalSent} sent`,
+    },
+    {
+      icon: '🧾',
+      heading: 'Avg invoice value',
+      value: avgInvoiceVal > 0 ? fmtINR(avgInvoiceVal) : '—',
+      desc: `Across ${paidInvoices.length} paid invoice${paidInvoices.length!==1?'s':''}`,
+    },
+  ];
+
+  document.getElementById('insight-grid').innerHTML = insights.map(i => `
+    <div class="insight-card">
+      <div class="insight-icon">${i.icon}</div>
+      <div class="insight-heading">${i.heading}</div>
+      <div class="insight-value">${i.value}</div>
+      <div class="insight-desc">${i.desc}</div>
+    </div>`).join('');
+}
+
+// ── CSV Export ────────────────────────────────────────────
+function exportCSV() {
+  const quotes   = filteredQuotes();
+  const invoices = filteredInvoices();
+
+  const rows = [
+    ['Type','Ref','Client','Event Type','Status','Total','Created Date'],
+    ...quotes.map(q => [
+      'Quote', q.ref || '', q.clientName || '', q.eventType || '',
+      q.status || '', q.total || 0,
+      q.createdAt ? new Date(q.createdAt).toLocaleDateString('en-IN') : ''
+    ]),
+    ...invoices.map(i => [
+      'Invoice', i.ref || '', i.clientName || '', i.eventType || '',
+      i.status || '', i.total || 0,
+      i.createdAt ? new Date(i.createdAt).toLocaleDateString('en-IN') : ''
+    ]),
+  ];
+
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'studio-analytics-' + today() + '.csv';
+  a.click();
+  showToast('CSV exported');
+}
+
+// ── Boot ──────────────────────────────────────────────────
+initAuth('../').then(ok => {
+  if (!ok) return;
+  renderNav('analytics', '../');
+  initLimitBanner();
+  renderAll();
+});
+</script>
+</body>
+</html>
