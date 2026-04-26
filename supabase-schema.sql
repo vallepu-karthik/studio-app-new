@@ -183,3 +183,14 @@ create trigger quotes_trial_limit
 create trigger invoices_trial_limit
   before insert on public.invoices
   for each row execute function public.enforce_trial_limit();
+
+-- ── Supabase Storage CORS (required for PDF logo fix) ────────
+-- Run this in Supabase Dashboard → Storage → Policies → CORS
+-- OR via Supabase CLI: supabase storage update-bucket logos --allowed-origins '*'
+--
+-- In Supabase Dashboard:
+--   Storage → logos bucket → Edit bucket → CORS origins → add:
+--     https://your-app.vercel.app
+--   (or * for development)
+--
+-- This allows fetch() in pdf.js to load the logo without canvas taint.

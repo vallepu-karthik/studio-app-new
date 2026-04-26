@@ -55,29 +55,64 @@ function hline(doc,y,col,lw){
 /* ══════════════════════════════════════════════════════
    IMAGE COMPRESSION
 ══════════════════════════════════════════════════════ */
-function compressImage(base64, maxW, maxH, quality, callback) {
+// ── Compress an image to a base64 JPEG ───────────────────
+// Handles both base64 data URIs and https:// URLs safely.
+// If canvas is tainted (CORS), falls back to using the image directly.
+function compressImage(src, maxW, maxH, quality, callback) {
+  // If it's a remote URL, fetch it as a blob first to avoid canvas taint
+  if (src && src.startsWith('http')) {
+    fetch(src)
+      .then(function(r) { return r.blob(); })
+      .then(function(blob) {
+        var reader = new FileReader();
+        reader.onload = function(e) { _doCompress(e.target.result, maxW, maxH, quality, callback); };
+        reader.onerror = function() { callback(src); };
+        reader.readAsDataURL(blob);
+      })
+      .catch(function() {
+        // Fetch failed (CORS/network) — use image directly without compression
+        console.warn('[PDF] Logo fetch failed — using URL directly');
+        callback(src);
+      });
+    return;
+  }
+  _doCompress(src, maxW, maxH, quality, callback);
+}
+
+function _doCompress(base64, maxW, maxH, quality, callback) {
   try {
     var img = new Image();
+    img.crossOrigin = 'anonymous'; // prevent canvas taint for CDN images
     img.onload = function() {
-      var scale = Math.min(1, maxW/img.width, maxH/img.height);
-      var cw = Math.round(img.width*scale), ch = Math.round(img.height*scale);
-      var canvas = document.createElement('canvas');
-      canvas.width=cw; canvas.height=ch;
-      canvas.getContext('2d').drawImage(img,0,0,cw,ch);
-      callback(canvas.toDataURL('image/jpeg', quality||0.5));
+      try {
+        var scale = Math.min(1, maxW / img.width, maxH / img.height);
+        var cw = Math.round(img.width * scale), ch = Math.round(img.height * scale);
+        var canvas = document.createElement('canvas');
+        canvas.width = cw; canvas.height = ch;
+        canvas.getContext('2d').drawImage(img, 0, 0, cw, ch);
+        var result = canvas.toDataURL('image/jpeg', quality || 0.6);
+        callback(result);
+      } catch(e) {
+        // toDataURL threw SecurityError — return original without compression
+        console.warn('[PDF] Canvas tainted — using image without compression:', e.message);
+        callback(base64);
+      }
     };
-    img.onerror = function(){ callback(base64); };
+    img.onerror = function() { callback(base64); };
     img.src = base64;
-  } catch(e){ callback(base64); }
+  } catch(e) {
+    console.warn('[PDF] compressImage error:', e.message);
+    callback(base64);
+  }
 }
 
 function prepareImages(settings, callback) {
   var logo = settings.logo, sig = settings.signature;
-  var done = 0, total = (logo?1:0)+(sig?1:0);
-  if (!total){ callback(settings); return; }
-  function check(){ if(++done===total) callback(settings); }
-  if(logo) compressImage(logo,  200,120,0.5,function(o){ settings._logo=o; check(); });
-  if(sig)  compressImage(sig,   200, 80,0.6,function(o){ settings._sig =o; check(); });
+  var done = 0, total = (logo ? 1 : 0) + (sig ? 1 : 0);
+  if (!total) { callback(settings); return; }
+  function check() { if (++done === total) callback(settings); }
+  if (logo) compressImage(logo, 200, 120, 0.6, function(o) { settings._logo = o; check(); });
+  if (sig)  compressImage(sig,  200,  80, 0.7, function(o) { settings._sig  = o; check(); });
 }
 
 /* ══════════════════════════════════════════════════════
