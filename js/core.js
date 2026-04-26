@@ -409,57 +409,6 @@ function getAllUpcomingReminders() {
   return results.sort((a, b) => a.reminderDate.localeCompare(b.reminderDate));
 }
 
-// ── Client birthday / anniversary reminders ───────────────
-// Returns clients whose birthday or weddingDate falls within `days` days from today.
-// Each result: { clientId, clientName, contact, type ('birthday'|'anniversary'),
-//               date (MM-DD), nextDate (YYYY-MM-DD), daysAway }
-function getClientDateReminders(days) {
-  days = days || 7;
-  var t       = today();
-  var tDate   = new Date(t + 'T00:00:00');
-  var results = [];
-
-  getClients().forEach(function(c) {
-    var checks = [
-      { field: c.birthday,    type: 'birthday'     },
-      { field: c.weddingDate, type: 'anniversary'  },
-    ];
-    checks.forEach(function(chk) {
-      if (!chk.field) return;
-      var parts = chk.field.split('-'); // YYYY-MM-DD or MM-DD
-      var month, day;
-      if (parts.length === 3) { month = parseInt(parts[1],10); day = parseInt(parts[2],10); }
-      else if (parts.length === 2) { month = parseInt(parts[0],10); day = parseInt(parts[1],10); }
-      else return;
-
-      // Build this year's occurrence
-      var yr = tDate.getFullYear();
-      var candidate = new Date(yr, month - 1, day);
-      // If already passed this year, check next year
-      if (candidate < tDate) candidate = new Date(yr + 1, month - 1, day);
-
-      var msAway   = candidate.getTime() - tDate.getTime();
-      var daysAway = Math.round(msAway / 86400000);
-      if (daysAway <= days) {
-        var mm = String(month).padStart(2,'0');
-        var dd = String(day).padStart(2,'0');
-        results.push({
-          clientId:   c.id,
-          clientName: c.name,
-          contact:    c.contact || '',
-          instagram:  c.instagram || '',
-          type:       chk.type,
-          date:       mm + '-' + dd,
-          nextDate:   candidate.toISOString().split('T')[0],
-          daysAway:   daysAway,
-        });
-      }
-    });
-  });
-
-  return results.sort(function(a,b){ return a.daysAway - b.daysAway; });
-}
-
 // ── Calendar clash detection ───────────────────────────────
 // Returns all quotes that share the same event date,
 // excluding the current quote being edited (by id).

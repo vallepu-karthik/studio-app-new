@@ -81,7 +81,7 @@
               <input type="text" id="qf-contact" placeholder="98765 43210">
             </div>
           </div>
-          <div class="form-row cols-2" style="margin-bottom:.75rem">
+          <div class="form-row cols-2" style="margin-bottom:.85rem">
             <div class="form-group">
               <label>Instagram <span style="font-weight:400;color:#aaa;font-size:10px">optional</span></label>
               <input type="text" id="qf-instagram" placeholder="@username">
@@ -89,16 +89,6 @@
             <div class="form-group">
               <label>Notes <span style="font-weight:400;color:#aaa;font-size:10px">optional</span></label>
               <input type="text" id="qf-notes" placeholder="Wedding couple, referred by Ravi">
-            </div>
-          </div>
-          <div class="form-row cols-2" style="margin-bottom:.85rem">
-            <div class="form-group">
-              <label>Birthday <span style="font-weight:400;color:#aaa;font-size:10px">optional — for reminders</span></label>
-              <input type="date" id="qf-birthday">
-            </div>
-            <div class="form-group">
-              <label>Wedding date <span style="font-weight:400;color:#aaa;font-size:10px">optional — anniversary reminders</span></label>
-              <input type="date" id="qf-wedding">
             </div>
           </div>
           <div style="display:flex;gap:8px">
@@ -135,7 +125,6 @@
           <div>
             <div class="detail-name"    id="det-name"></div>
             <div class="detail-contact" id="det-contact"></div>
-            <div id="det-date-info" style="font-size:12px;color:#92400e;margin-top:3px;font-weight:500"></div>
           </div>
           <div class="detail-actions">
             <button class="btn btn-sm" onclick="toggleDetailEdit()">Edit</button>
@@ -150,13 +139,9 @@
             <div class="form-group"><label>Full name</label><input type="text" id="det-f-name"></div>
             <div class="form-group"><label>Phone / email</label><input type="text" id="det-f-contact"></div>
           </div>
-          <div class="form-row cols-2" style="margin-bottom:.75rem">
+          <div class="form-row cols-2" style="margin-bottom:.85rem">
             <div class="form-group"><label>Instagram</label><input type="text" id="det-f-instagram"></div>
             <div class="form-group"><label>Notes</label><input type="text" id="det-f-notes"></div>
-          </div>
-          <div class="form-row cols-2" style="margin-bottom:.85rem">
-            <div class="form-group"><label>Birthday <span style="font-weight:400;color:#aaa;font-size:10px">for reminders</span></label><input type="date" id="det-f-birthday"></div>
-            <div class="form-group"><label>Wedding date <span style="font-weight:400;color:#aaa;font-size:10px">anniversary reminders</span></label><input type="date" id="det-f-wedding"></div>
           </div>
           <div style="display:flex;gap:8px">
             <button class="btn btn-primary btn-sm" onclick="saveDetailEdit()">Save changes</button>
@@ -276,17 +261,6 @@ function renderGrid(search) {
     var cq     = quotes.filter(function(q){ return q.clientName === c.name; });
     var ci     = invoices.filter(function(i){ return i.clientName === c.name; });
     var billed = ci.reduce(function(s,i){ return s + (i.total||0); }, 0);
-
-    // Date badge — upcoming birthday or anniversary within 30 days
-    var dateBadge = '';
-    var reminders = getClientDateReminders(30).filter(function(r){ return r.clientId === c.id; });
-    if (reminders.length > 0) {
-      var r = reminders[0];
-      var icon  = r.type === 'birthday' ? '🎂' : '💍';
-      var label = r.daysAway === 0 ? 'Today!' : r.daysAway === 1 ? 'Tomorrow' : 'In ' + r.daysAway + 'd';
-      dateBadge = '<div style="margin-top:.45rem;display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;background:#fef9ee;color:#92400e;border:1px solid #fcd34d;border-radius:6px;padding:2px 7px">' + icon + ' ' + label + '</div>';
-    }
-
     return '<div class="client-card" onclick="openDetail(\'' + c.id + '\')">' +
       '<div class="client-avatar ' + avatarClass(c.name) + '">' + initials(c.name) + '</div>' +
       '<div class="client-name">' + c.name + '</div>' +
@@ -295,7 +269,7 @@ function renderGrid(search) {
         '<div class="client-stat"><strong>' + cq.length + '</strong>quotes</div>' +
         '<div class="client-stat"><strong>' + ci.length + '</strong>invoices</div>' +
         '<div class="client-stat"><strong>' + fmtINR(billed) + '</strong>billed</div>' +
-      '</div>' + dateBadge + '</div>';
+      '</div></div>';
   }).join('');
 }
 
@@ -307,8 +281,6 @@ function openNewClientForm() {
   document.getElementById('qf-contact').value   = '';
   document.getElementById('qf-instagram').value = '';
   document.getElementById('qf-notes').value     = '';
-  document.getElementById('qf-birthday').value  = '';
-  document.getElementById('qf-wedding').value   = '';
   document.getElementById('quick-form').classList.add('open');
   document.getElementById('qf-name').focus();
 }
@@ -320,12 +292,10 @@ function saveQuickClient() {
   var name = document.getElementById('qf-name').value.trim();
   if (!name) { showToast('Client name is required'); return; }
   var data = {
-    name:        name,
-    contact:     document.getElementById('qf-contact').value.trim(),
-    instagram:   document.getElementById('qf-instagram').value.trim(),
-    notes:       document.getElementById('qf-notes').value.trim(),
-    birthday:    document.getElementById('qf-birthday').value  || '',
-    weddingDate: document.getElementById('qf-wedding').value   || '',
+    name:      name,
+    contact:   document.getElementById('qf-contact').value.trim(),
+    instagram: document.getElementById('qf-instagram').value.trim(),
+    notes:     document.getElementById('qf-notes').value.trim(),
   };
   if (editingClientId) {
     var clients = getClients();
@@ -352,20 +322,6 @@ function openDetail(clientId) {
   document.getElementById('det-name').textContent    = client.name;
   document.getElementById('det-contact').textContent =
     [client.contact, client.instagram, client.notes].filter(Boolean).join(' · ') || '—';
-
-  // Birthday / anniversary line
-  var dateInfoEl = document.getElementById('det-date-info');
-  var dateParts = [];
-  if (client.birthday) {
-    var bd = new Date(client.birthday + 'T00:00:00');
-    dateParts.push('🎂 Birthday: ' + bd.toLocaleDateString('en-IN', { day:'numeric', month:'short' }));
-  }
-  if (client.weddingDate) {
-    var wd = new Date(client.weddingDate + 'T00:00:00');
-    var yrs = new Date().getFullYear() - wd.getFullYear();
-    dateParts.push('💍 Anniversary: ' + wd.toLocaleDateString('en-IN', { day:'numeric', month:'short' }) + (yrs > 0 ? ' (' + yrs + ' yr' + (yrs!==1?'s':'') + ')' : ''));
-  }
-  if (dateInfoEl) dateInfoEl.textContent = dateParts.join('  ·  ');
 
   document.getElementById('det-edit-form').classList.remove('open');
 
@@ -458,12 +414,10 @@ function toggleDetailEdit() {
   if (!form.classList.contains('open')) {
     var client = getClients().find(function(c){ return c.id===currentClientId; });
     if (!client) return;
-    document.getElementById('det-f-name').value      = client.name        || '';
-    document.getElementById('det-f-contact').value   = client.contact     || '';
-    document.getElementById('det-f-instagram').value = client.instagram   || '';
-    document.getElementById('det-f-notes').value     = client.notes       || '';
-    document.getElementById('det-f-birthday').value  = client.birthday    || '';
-    document.getElementById('det-f-wedding').value   = client.weddingDate || '';
+    document.getElementById('det-f-name').value      = client.name      || '';
+    document.getElementById('det-f-contact').value   = client.contact   || '';
+    document.getElementById('det-f-instagram').value = client.instagram || '';
+    document.getElementById('det-f-notes').value     = client.notes     || '';
   }
   form.classList.toggle('open');
 }
@@ -475,12 +429,10 @@ function saveDetailEdit() {
   var idx = clients.findIndex(function(c){ return c.id===currentClientId; });
   if (idx < 0) return;
   clients[idx] = Object.assign({}, clients[idx], {
-    name:        name,
-    contact:     document.getElementById('det-f-contact').value.trim(),
-    instagram:   document.getElementById('det-f-instagram').value.trim(),
-    notes:       document.getElementById('det-f-notes').value.trim(),
-    birthday:    document.getElementById('det-f-birthday').value  || '',
-    weddingDate: document.getElementById('det-f-wedding').value   || '',
+    name:      name,
+    contact:   document.getElementById('det-f-contact').value.trim(),
+    instagram: document.getElementById('det-f-instagram').value.trim(),
+    notes:     document.getElementById('det-f-notes').value.trim(),
   });
   saveClients(clients);
   showToast('Client updated');

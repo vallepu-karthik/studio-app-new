@@ -382,14 +382,12 @@
   });
 
   function loadReminders() {
-    const due    = getDueReminders();
-    const dates  = getClientDateReminders(7);
-    const strip  = document.getElementById('reminder-strip');
+    const due = getDueReminders();
+    const strip = document.getElementById('reminder-strip');
     if (!strip) return;
-    if (due.length === 0 && dates.length === 0) { strip.innerHTML = ''; return; }
+    if (due.length === 0) { strip.innerHTML = ''; return; }
 
-    // Quote/invoice follow-up rows
-    const followUpRows = due.map(r => {
+    const rows = due.map(r => {
       const page = r.type === 'quote' ? 'pages/quotes.html' : 'pages/invoices.html';
       return `<div class="reminder-row">
         <div class="reminder-row-left">
@@ -403,36 +401,11 @@
       </div>`;
     }).join('');
 
-    // Birthday / anniversary rows
-    const dateRows = dates.map(r => {
-      const icon    = r.type === 'birthday' ? '🎂' : '💍';
-      const typeLabel = r.type === 'birthday' ? 'Birthday' : 'Anniversary';
-      const whenLabel = r.daysAway === 0 ? 'Today!' : r.daysAway === 1 ? 'Tomorrow' : 'In ' + r.daysAway + ' days';
-      const settings  = getSettings();
-      const waMsg = r.type === 'birthday'
-        ? `Hi ${r.clientName.split(' ')[0]}! 🎂 Wishing you a very happy birthday from ${settings.studioName}! As a special birthday gift, we'd love to offer you a portrait session — reply to know more! 📸`
-        : `Hi ${r.clientName.split(' ')[0]}! 💍 Happy anniversary from ${settings.studioName}! Celebrate this special day with a beautiful anniversary shoot — let us know if you're interested! 📸`;
-      const waLink = r.contact
-        ? `https://wa.me/${r.contact.replace(/\D/g,'')}?text=${encodeURIComponent(waMsg)}`
-        : `https://wa.me/?text=${encodeURIComponent(waMsg)}`;
-      return `<div class="reminder-row">
-        <div class="reminder-row-left">
-          <div>
-            <span class="reminder-row-ref">${icon} ${r.clientName}</span>
-            <span class="reminder-row-note">— ${typeLabel} ${whenLabel}</span>
-          </div>
-          <div class="reminder-row-date">Perfect time to pitch an anniversary shoot</div>
-        </div>
-        <a href="${waLink}" target="_blank" class="reminder-done-btn" style="text-decoration:none;background:#25d366;border-color:#25d366;color:#fff">WhatsApp</a>
-      </div>`;
-    }).join('');
-
-    const total = due.length + dates.length;
     strip.innerHTML = `<div class="reminder-strip">
       <div class="reminder-strip-head">
-        <span>🔔 ${total} reminder${total > 1 ? 's' : ''}</span>
+        <span>&#128276; ${due.length} follow-up${due.length > 1 ? 's' : ''} due</span>
       </div>
-      ${followUpRows}${dateRows}
+      ${rows}
     </div>`;
   }
 
