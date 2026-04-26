@@ -31,7 +31,7 @@ async function requireAuth(basePath) {
   const b = basePath || '';
   _session = await sbGetSession();
   if (!_session) {
-    window.location.href = '/pages/auth.html';
+    window.location.href = b + 'pages/auth.html';
     return false;
   }
   _userId = _session.user.id;
@@ -51,36 +51,25 @@ async function syncFromCloud() {
       sbLoadSettings(_userId),
     ]);
 
-    // Always write — even empty arrays — so deletions on one device
-    // propagate correctly to all other devices. The old if (arr.length)
-    // guard was silently swallowing cross-device deletions.
-    if (quotes   !== null) Store.set(KEYS.quotes,   quotes);
-    if (invoices !== null) Store.set(KEYS.invoices, invoices);
-    if (clients  !== null) Store.set(KEYS.clients,  clients);
-    if (packages !== null) Store.set(KEYS.packages, packages);
+    if (quotes.length)   Store.set(KEYS.quotes,   quotes);
+    if (invoices.length) Store.set(KEYS.invoices, invoices);
+    if (clients.length)  Store.set(KEYS.clients,  clients);
+    if (packages.length) Store.set(KEYS.packages, packages);
 
     if (settings) {
-      // Merge cloud settings with local, preserving logo URL and theme
-      const local      = Store.get(KEYS.settings) || {};
-      const logoUrl    = Store.get('sa_logo_url') || local.logo || '';
-      const localTheme = local.theme || 'light'; // never let cloud overwrite theme (FIX-15)
-      Store.set(KEYS.settings, { ...local, ...settings, logo: logoUrl, theme: localTheme });
+      // Merge cloud settings with local, preserving logo URL
+      const local = Store.get(KEYS.settings) || {};
+      const logoUrl = Store.get('sa_logo_url') || local.logo || '';
+      Store.set(KEYS.settings, { ...local, ...settings, logo: logoUrl });
     }
 
-    // FIX-12: Cache logo URL with 1-hour TTL to avoid 2 HEAD requests on every page load
-    const LOGO_TTL    = 60 * 60 * 1000; // 1 hour in ms
-    const cachedLogoTs = localStorage.getItem('sa_logo_ts');
-    const logoExpired  = !cachedLogoTs || (Date.now() - parseInt(cachedLogoTs, 10)) > LOGO_TTL;
-
-    if (logoExpired) {
-      const logoUrl = await sbGetLogoUrl(_userId);
-      localStorage.setItem('sa_logo_ts', String(Date.now())); // cache hit or miss timestamp
-      if (logoUrl) {
-        Store.set('sa_logo_url', logoUrl);
-        const s = Store.get(KEYS.settings) || {};
-        s.logo = logoUrl;
-        Store.set(KEYS.settings, s);
-      }
+    // Refresh logo from storage
+    const logoUrl = await sbGetLogoUrl(_userId);
+    if (logoUrl) {
+      Store.set('sa_logo_url', logoUrl);
+      const s = Store.get(KEYS.settings) || {};
+      s.logo = logoUrl;
+      Store.set(KEYS.settings, s);
     }
 
     _syncReady = true;
@@ -136,34 +125,18 @@ function _patchDeleteInvoice() {
 }
 
 function _patchSaveClient() {
-  // core.js exposes upsertClient(data), not saveClient — patch the real function.
-  const _orig = window.upsertClient;
-  window.upsertClient = function(clientData) {
-    _orig(clientData);
-    // Re-fetch the stored client (with its id) and sync to Supabase.
-    if (_userId) {
-      const clients = typeof getClients === 'function' ? getClients() : [];
-      const stored = clients.find(c => c.name && clientData.name &&
-        c.name.toLowerCase() === clientData.name.toLowerCase());
-      if (stored) sbSaveClient(_userId, stored).catch(e => console.warn('[Studio] upsertClient sync:', e.message));
-    }
+  const _orig = window.saveClient;
+  window.saveClient = function(client) {
+    _orig(client);
+    if (_userId) sbSaveClient(_userId, client).catch(e => console.warn('[Studio] saveClient sync:', e.message));
   };
 }
 
 function _patchDeleteClient() {
-  // core.js has no standalone deleteClient — deletions go through saveClients(arr).
-  // We reconstruct the deleted id by comparing before/after the array write.
-  const _origSaveClients = window.saveClients;
-  window.saveClients = function(arr) {
-    const before = typeof getClients === 'function' ? getClients().map(c => c.id) : [];
-    _origSaveClients(arr);
-    if (_userId) {
-      const afterIds = arr.map(c => c.id);
-      const deletedIds = before.filter(id => !afterIds.includes(id));
-      deletedIds.forEach(id =>
-        sbDeleteClient(_userId, id).catch(e => console.warn('[Studio] deleteClient sync:', e.message))
-      );
-    }
+  const _orig = window.deleteClient;
+  window.deleteClient = function(id) {
+    _orig(id);
+    if (_userId) sbDeleteClient(_userId, id).catch(e => console.warn('[Studio] deleteClient sync:', e.message));
   };
 }
 
@@ -213,9 +186,9 @@ function _patchRemoveLogo() {
 // Accept token patches — mirror to Supabase
 function _patchCreateAcceptToken() {
   const _orig = window.createAcceptToken;
-  window.createAcceptToken = function(quoteId, validUntil) {
+  window.createAcceptToken = function(quoteId) {
     const token = _orig(quoteId);
-    if (_userId) sbCreateAcceptToken(_userId, token, quoteId, validUntil).catch(e => console.warn('[Studio] acceptToken sync:', e.message));
+    if (_userId) sbCreateAcceptToken(_userId, token, quoteId).catch(e => console.warn('[Studio] acceptToken sync:', e.message));
     return token;
   };
 }

@@ -84,23 +84,14 @@ create table if not exists public.accept_tokens (
   token       text primary key,
   quote_id    text not null,
   user_id     uuid not null references auth.users(id) on delete cascade,
-  expires_at  timestamptz,              -- null = no expiry (legacy tokens)
   created_at  timestamptz default now()
 );
-
--- Migration: add column to existing table if it doesn't exist yet
-alter table public.accept_tokens
-  add column if not exists expires_at timestamptz;
 
 alter table public.accept_tokens enable row level security;
 -- Owners can insert/delete their own tokens
 create policy "owner_accept_tokens_write" on public.accept_tokens
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
--- Public can read a single token row to verify acceptance.
--- IMPORTANT: This policy allows reading only when filtering by token value.
--- The query in accept.html always uses .eq('token', token) which satisfies this.
--- For stronger isolation, replace sbGetAcceptToken() with a Supabase Edge Function
--- that validates the token server-side without exposing the table directly.
+-- Public can read tokens to verify acceptance (accept.html is unauthenticated)
 create policy "public_accept_tokens_read" on public.accept_tokens
   for select using (true);
 
@@ -132,41 +123,3 @@ create trigger invoices_updated_at  before update on public.invoices  for each r
 create trigger clients_updated_at   before update on public.clients   for each row execute function public.set_updated_at();
 create trigger packages_updated_at  before update on public.packages  for each row execute function public.set_updated_at();
 create trigger profiles_updated_at  before update on public.profiles  for each row execute function public.set_updated_at();
-
--- ── Trial limit enforcement (server-side) ─────────────────
--- Prevents trial bypass via localStorage manipulation.
--- Rejects any INSERT that would exceed 100 quotes or 100 invoices per user.
-create or replace function public.enforce_trial_limit()
-returns trigger language plpgsql security definer as $$
-declare
-  quote_count   int;
-  invoice_count int;
-begin
-  if TG_TABLE_NAME = 'quotes' then
-    select count(*) into quote_count
-      from public.quotes where user_id = NEW.user_id;
-    if quote_count >= 100 then
-      raise exception 'Trial limit reached: 100 quotes. Please upgrade to continue.';
-    end if;
-  end if;
-
-  if TG_TABLE_NAME = 'invoices' then
-    select count(*) into invoice_count
-      from public.invoices where user_id = NEW.user_id;
-    if invoice_count >= 100 then
-      raise exception 'Trial limit reached: 100 invoices. Please upgrade to continue.';
-    end if;
-  end if;
-
-  return NEW;
-end;
-$$;
-
--- Only fires on INSERT (not upsert-as-update), so editing existing records is unaffected
-create trigger quotes_trial_limit
-  before insert on public.quotes
-  for each row execute function public.enforce_trial_limit();
-
-create trigger invoices_trial_limit
-  before insert on public.invoices
-  for each row execute function public.enforce_trial_limit();
