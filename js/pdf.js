@@ -32,7 +32,7 @@ function st(doc,r){ doc.setTextColor(r[0],r[1],r[2]); }
 function bold(doc)  { doc.setFont('helvetica','bold'); }
 function normal(doc){ doc.setFont('helvetica','normal'); }
 function right(doc,txt,x,y){ doc.text(String(txt),x,y,{align:'right'}); }
-var _pdfCurrencySymbol = 'Rs.';
+var _pdfCurrencySymbol = '₹';
 var _pdfCurrencyLocale = 'en-IN';
 function inr(n){
   var num = Math.round(Number(n)||0);
@@ -40,7 +40,7 @@ function inr(n){
 }
 function setPdfCurrency(code){
   var map = {
-    INR: ['Rs.','en-IN'], USD: ['$','en-US'], AED: ['AED ','en-US'],
+    INR: ['₹','en-IN'], USD: ['$','en-US'], AED: ['AED ','en-US'],
     GBP: ['£','en-GB'], EUR: ['€','en-DE'],
     SGD: ['S$','en-SG'], AUD: ['A$','en-AU']
   };
@@ -294,12 +294,12 @@ function drawBottomSection(doc, s, invoice, grandTotal, isInvoice, y) {
     }
     hline(doc, ry, LIGHT, 0.3); ry+=5;
     bold(doc); doc.setFontSize(10); st(doc,BLACK);
-    doc.text('Total Pending Due ('+( s.currency||'INR')+')', rightX, ry); right(doc,inr(pending), rx, ry); ry+=7;
+    doc.text('Total Pending Due (INR)', rightX, ry); right(doc,inr(pending), rx, ry); ry+=7;
 
   } else {
     /* Quote: Total (INR) */
     normal(doc); doc.setFontSize(9.5); st(doc,MID);
-    doc.text('Total ('+(s.currency||'INR')+')', rightX, ry);
+    doc.text('Total (INR)', rightX, ry);
     bold(doc); doc.setFontSize(13); st(doc,BLACK);
     right(doc, inr(grandTotal), rx, ry); ry+=7;
   }
