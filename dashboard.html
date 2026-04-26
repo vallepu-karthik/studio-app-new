@@ -38,19 +38,9 @@
     }
     .reminder-done-btn:hover { background: #fde68a; }
   </style>
-  <script>
-    /* Anti-FOUC: apply theme before first paint to prevent light flash */
-    (function() {
-      try {
-        var s = JSON.parse(localStorage.getItem('sa_settings_v1') || '{}');
-        if (s.theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-      } catch(e) {}
-    })();
-  </script>
 </head>
 <body>
 
-<div id="offline-banner">You're offline &mdash; changes are saved locally and will sync when reconnected.</div>
 <div class="app-shell">
 
   <!-- Sidebar -->
@@ -252,8 +242,6 @@
 </div>
 
 <script src="js/core.js"></script>
-  <script src="js/env.js"></script>
-  <script src="js/sanitize.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="js/supabase.js"></script>
   <script src="js/auth.js"></script>
@@ -386,7 +374,6 @@
     if (!ok) return;
     autoExpireQuotes();
     renderNav('dashboard', '');
-    initOfflineDetector();
     initLimitBanner();
     loadReminders();
     loadClashes();

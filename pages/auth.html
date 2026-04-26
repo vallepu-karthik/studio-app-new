@@ -140,9 +140,7 @@
 </div>
 
 <!-- Supabase CDN -->
-<script src="../js/env.js"></script>
-  <script src="../js/sanitize.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="../js/core.js"></script>
 <script src="../js/supabase.js"></script>
 <script>
@@ -151,7 +149,7 @@
 // If already logged in, skip to dashboard
 (async function() {
   const session = await sbGetSession();
-  if (session) window.location.href = '/app';
+  if (session) window.location.href = '../dashboard.html';
 })();
 
 function switchTab(tab) {
@@ -201,7 +199,7 @@ async function doSignIn() {
   setLoading('btn-signin', true);
   try {
     await sbSignIn(email, password);
-    window.location.href = '/app';
+    window.location.href = '../dashboard.html';
   } catch (e) {
     showError(friendlyError(e.message));
     setLoading('btn-signin', false);

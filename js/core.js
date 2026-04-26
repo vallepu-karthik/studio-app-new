@@ -482,25 +482,6 @@ function markQuoteAccepted(token) {
   return true;
 }
 
-
-// ── Offline detector ──────────────────────────────────────
-// Call once on page load. Shows a banner when the user loses
-// internet — reassures them that saves still work locally.
-function initOfflineDetector() {
-  function update() {
-    var banner = document.getElementById('offline-banner');
-    if (!banner) return;
-    if (navigator.onLine) {
-      banner.style.display = 'none';
-    } else {
-      banner.style.display = 'flex';
-    }
-  }
-  window.addEventListener('online',  update);
-  window.addEventListener('offline', update);
-  update(); // set initial state
-}
-
 // ── Theme ──────────────────────────────────────────────────
 function applyTheme() {
   var s = getSettings();

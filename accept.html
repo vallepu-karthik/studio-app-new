@@ -93,9 +93,7 @@
   </div>
 </div>
 
-<script src="js/env.js"></script>
-  <script src="js/sanitize.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/core.js"></script>
 <script src="js/supabase.js"></script>
 <script>
@@ -133,31 +131,10 @@ var _token = '';
   if (!q) q = getQuoteByToken(_token); // localStorage fallback
   if (!q) { show('state-error'); document.getElementById('err-msg').textContent = 'This link is invalid or has expired.'; return; }
 
-  // Check token expiry (expires_at set when quote has a validUntil date)
-  if (_sbToken && _sbToken.expires_at) {
-    if (new Date(_sbToken.expires_at) < new Date()) {
-      show('state-error');
-      document.getElementById('err-msg').textContent =
-        'This quotation link has expired. Please contact the studio for an updated quote.';
-      return;
-    }
-  }
-  // Also check quote's own validUntil as a fallback
-  if (q.validUntil && q.status === 'sent') {
-    const today = new Date().toISOString().split('T')[0];
-    if (q.validUntil < today) {
-      show('state-error');
-      document.getElementById('err-msg').textContent =
-        'This quotation has expired (valid until ' + q.validUntil + '). Please contact the studio.';
-      return;
-    }
-  }
-
-  if (q.status === 'accepted' || q.status === 'invoiced') {
+  if (q.status === 'accepted') {
     show('state-done');
     var s = getSettings();
-    document.getElementById('done-sub').textContent = q.ref + ' — ' + (q.clientName||'') + ' has accepted this quotation.'
-      + (q.status === 'invoiced' ? ' (Invoice has been raised.)' : '');
+    document.getElementById('done-sub').textContent = q.ref + ' — ' + (q.clientName||'') + ' has accepted this quotation.';
     if (q.acceptedAt) {
       document.getElementById('done-time').textContent = 'Accepted on ' + new Date(q.acceptedAt).toLocaleString('en-IN', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
     }

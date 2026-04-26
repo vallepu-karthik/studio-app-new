@@ -122,18 +122,8 @@
       .form-right { position: static; }
     }
   </style>
-  <script>
-    /* Anti-FOUC: apply theme before first paint to prevent light flash */
-    (function() {
-      try {
-        var s = JSON.parse(localStorage.getItem('sa_settings_v1') || '{}');
-        if (s.theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-      } catch(e) {}
-    })();
-  </script>
 </head>
 <body>
-<div id="offline-banner">You're offline &mdash; changes are saved locally and will sync when reconnected.</div>
 <div class="app-shell">
   <aside class="sidebar" id="sidebar"></aside>
   <main class="main-area">
@@ -218,15 +208,15 @@
               <div class="form-row cols-3">
                 <div class="form-group">
                   <label>Quote date</label>
-                  <input type="date" id="f-quote-date" oninput="autoValidUntil(); enforceDateMin('f-quote-date', false)">
+                  <input type="date" id="f-quote-date" oninput="autoValidUntil()">
                 </div>
                 <div class="form-group">
                   <label>Valid until <span style="font-weight:400;color:#aaa;font-size:10px">auto +14d</span></label>
-                  <input type="date" id="f-valid-until" oninput="enforceDateMin('f-valid-until', true); updatePreview()">
+                  <input type="date" id="f-valid-until" oninput="updatePreview()">
                 </div>
                 <div class="form-group">
                   <label>Event date</label>
-                  <input type="date" id="f-event-date" oninput="enforceDateMin('f-event-date', true); checkClash();updatePreview();">
+                  <input type="date" id="f-event-date" oninput="checkClash();updatePreview();">
                 </div>
               </div>
               <div class="form-group" style="margin-top:.75rem">
@@ -385,8 +375,6 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="../js/core.js"></script>
-  <script src="../js/env.js"></script>
-  <script src="../js/sanitize.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="../js/supabase.js"></script>
   <script src="../js/auth.js"></script>
@@ -403,7 +391,6 @@ let curFilter  = 'all';
 initAuth('../').then(ok => {
   if (!ok) return;
   renderNav('quotes', '../');
-  initOfflineDetector();
   initLimitBanner();
   autoExpireQuotes();
   renderPackagePicker();
@@ -431,7 +418,7 @@ function renderList() {
   const filtered = curFilter === 'all' ? all : all.filter(q => q.status === curFilter);
 
   // Update tab counts
-  const counts = { all: all.length, draft: 0, sent: 0, accepted: 0, expired: 0, invoiced: 0 };
+  const counts = { all: all.length, draft: 0, sent: 0, accepted: 0, expired: 0 };
   all.forEach(q => { if (counts[q.status] !== undefined) counts[q.status]++; });
   document.querySelectorAll('.filter-tab').forEach(t => {
     const f   = t.dataset.filter;
@@ -463,15 +450,14 @@ function renderList() {
       ? ` <span style="font-size:10px;color:#1d6f42" title="Accepted on ${new Date(q.acceptedAt).toLocaleString('en-IN')}">✓ ${new Date(q.acceptedAt).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</span>` : '';
     return `<tr>
       <td><a class="action-link" onclick="openForm('${q.id}')">${q.ref}</a></td>
-      <td>${esc(q.clientName) || '—'}</td>
+      <td>${q.clientName || '—'}</td>
       <td>${q.eventDate ? formatDate(q.eventDate) + clashIcon : '<span style="color:#ccc">—</span>'}</td>
       <td>${fmtINR(q.total||0)}</td>
       <td style="${expired?'color:#e53e3e':''}">${formatDate(q.validUntil)}</td>
       <td><span class="pill pill-${badge}">${cap(badge)}</span>${acceptedNote}</td>
       <td>
         <a class="action-link" onclick="openForm('${q.id}')">Edit</a>
-        ${q.status === 'accepted'  ? ` &nbsp;·&nbsp; <a class="action-link" onclick="convertToInvoice('${q.id}')">Convert</a>` : ''}
-        ${q.status === 'invoiced'  ? ` &nbsp;·&nbsp; <a class="action-link" onclick="viewInvoiceForQuote('${q.id}')">View Invoice</a>` : ''}
+        ${(q.status==='sent'||q.status==='accepted') ? ` &nbsp;·&nbsp; <a class="action-link" onclick="convertToInvoice('${q.id}')">Convert</a>` : ''}
       </td>
     </tr>`;
   }).join('');
@@ -541,7 +527,6 @@ function openForm(id = null) {
     document.getElementById('f-reminder-note').value      = '';
     document.getElementById('reminder-fields').style.display = 'none';
   }
-  applyDateMins();  // FIX 1: set min=today on all date inputs every time form opens
   renderLines();
   checkClash();
   updatePreview();
@@ -574,12 +559,12 @@ function renderLines() {
         </select>
       </td>
       <td class="col-qty">
-        <input type="number" value="${item.qty}" min="0.01" step="0.01" style="text-align:center"
-          oninput="lineItems[${i}].qty=Math.max(0.01,+this.value||0.01);this.value=lineItems[${i}].qty;updateTotalsUI()">
+        <input type="number" value="${item.qty}" min="1" style="text-align:center"
+          oninput="lineItems[${i}].qty=+this.value||1;updateTotalsUI()">
       </td>
       <td class="col-rate">
-        <input type="number" value="${item.rate}" min="0" step="1" placeholder="0"
-          oninput="lineItems[${i}].rate=Math.max(0,+this.value||0);this.value=lineItems[${i}].rate;updateTotalsUI()">
+        <input type="number" value="${item.rate}" min="0" placeholder="0"
+          oninput="lineItems[${i}].rate=+this.value||0;updateTotalsUI()">
       </td>
       <td class="col-amt">${fmtINR(item.qty*item.rate)}</td>
       <td class="col-del">
@@ -690,98 +675,6 @@ function pickClient(name, contact) {
 }
 function hideAC() { setTimeout(()=>{ document.getElementById('ac-list').style.display='none'; },150); }
 
-
-// ─── VALIDATION ─────────────────────────────────────────
-
-/**
- * Enforce that a date input cannot be set to a past date.
- * @param {string} fieldId  - The input element id
- * @param {boolean} strict  - true = today or future required; false = today allowed (for quote date)
- */
-function enforceDateMin(fieldId, strict) {
-  const input  = document.getElementById(fieldId);
-  if (!input) return;
-  const todayStr = today();                   // 'YYYY-MM-DD', timezone-safe via core.js today()
-  input.min      = todayStr;                  // Browser-level prevention
-  if (input.value && input.value < todayStr) {
-    input.value = todayStr;                   // Silently clamp to today if somehow set below
-    showToast('Past dates are not allowed. Date reset to today.');
-  }
-}
-
-/**
- * Set min attributes on all date inputs when the form opens.
- * Called from openForm() and openNewForm().
- */
-function applyDateMins() {
-  const todayStr = today();
-  ['f-quote-date', 'f-valid-until', 'f-event-date', 'f-reminder-date'].forEach(function(id) {
-    const el = document.getElementById(id);
-    if (el) el.min = todayStr;
-  });
-}
-
-/**
- * Navigate to invoices page and open the invoice created from this quote.
- */
-function viewInvoiceForQuote(quoteId) {
-  const q = getQuoteById(quoteId);
-  if (!q || !q.invoiceId) {
-    showToast('Invoice not found — it may have been deleted.');
-    return;
-  }
-  // invoices.html reads ?id= param to auto-open an invoice (see invoices.html line ~412)
-  window.location.href = '../pages/invoices.html?id=' + encodeURIComponent(q.invoiceId);
-}
-
-function validateBeforeSave() {
-  const clientName = document.getElementById('f-client-name').value.trim();
-  if (!clientName) {
-    showToast('Client name is required before saving.');
-    document.getElementById('f-client-name').focus();
-    return false;
-  }
-  const hasItem = lineItems.some(i => i.desc.trim().length > 0);
-  if (!hasItem) {
-    showToast('Add at least one line item with a description.');
-    return false;
-  }
-  const allPositive = lineItems.every(i => i.qty > 0 && i.rate >= 0);
-  if (!allPositive) {
-    showToast('Line item quantities must be greater than zero.');
-    return false;
-  }
-
-  // ── Timezone-safe date validation (mirrors server-side logic) ──
-  const todayStr   = today();  // 'YYYY-MM-DD'
-  const qDate      = document.getElementById('f-quote-date').value;
-  const validUntil = document.getElementById('f-valid-until').value;
-  const eventDate  = document.getElementById('f-event-date').value;
-
-  if (qDate && qDate < todayStr) {
-    showToast('Quote date cannot be in the past.');
-    document.getElementById('f-quote-date').focus();
-    return false;
-  }
-  if (validUntil && validUntil < todayStr) {
-    showToast('Valid-until date cannot be in the past.');
-    document.getElementById('f-valid-until').focus();
-    return false;
-  }
-  if (eventDate && eventDate < todayStr) {
-    showToast('Event date cannot be in the past.');
-    document.getElementById('f-event-date').focus();
-    return false;
-  }
-  if (qDate && validUntil && validUntil < qDate) {
-    showToast('Valid-until date must be on or after the quote date.');
-    document.getElementById('f-valid-until').focus();
-    return false;
-  }
-
-  return true;
-}
-
 // ─── BUILD QUOTE OBJECT ─────────────────────────────────
 function buildQuote(status) {
   const rate = +document.getElementById('f-gst').value;
@@ -818,7 +711,6 @@ function buildQuote(status) {
 
 // ─── SAVE / DELETE ──────────────────────────────────────
 function saveDraft() {
-  if (!validateBeforeSave()) return;
   if (!currentId && !trackQuote()) return;
   const q = buildQuote('draft');
   currentId = q.id;
@@ -828,7 +720,6 @@ function saveDraft() {
 }
 
 function sendQuote() {
-  if (!validateBeforeSave()) return;
   if (!currentId && !trackQuote()) return;
   const q = buildQuote('sent');
   currentId = q.id;
@@ -876,25 +767,12 @@ function closePreviewModal() {
 }
 
 function downloadPDF() {
-  // Guard: ensure jsPDF is loaded before attempting PDF generation
-  if (typeof jspdf === 'undefined' || typeof jspdf.jsPDF !== 'function') {
-    showToast('PDF library is still loading — please try again in a moment.');
-    return;
-  }
-  // Save quote first if unsaved, so PDF has a valid ref number
   if (!currentId && !trackQuote()) return;
   const q = buildQuote(currentId ? (getQuoteById(currentId)?.status || 'draft') : 'draft');
   currentId = q.id;
-  try { saveQuote(q); } catch(e) {
-    console.error('[downloadPDF] saveQuote failed:', e);
-  }
+  saveQuote(q);
   document.getElementById('btn-del').style.display = 'inline-flex';
-
-  // Pass an onError callback — errors inside prepareImages async chain
-  // are invisible to try/catch, so they must be handled via callback
-  generateQuotePDF(q, function(err) {
-    showToast('PDF generation failed: ' + (err && err.message ? err.message : 'Unknown error. Check console.'));
-  });
+  generateQuotePDF(q);
 }
 
 function shareWhatsApp() {
@@ -922,54 +800,35 @@ function shareWhatsApp() {
 }
 
 // ─── CONVERT TO INVOICE ─────────────────────────────────
-// ─── CONVERT TO INVOICE ─────────────────────────────────
 function convertToInvoice(quoteId) {
-  const q = getQuoteById(quoteId);
-  if (!q) { showToast('Quote not found.'); return; }
-
-  // ── Guard: only accepted quotes can be converted ──────
-  if (q.status !== 'accepted') {
-    showToast('Only accepted quotes can be converted to invoices.');
-    return;
-  }
-
   if (!trackInvoice()) return;
-
+  const q = getQuoteById(quoteId);
+  if (!q) return;
   const { number, ref } = nextInvoiceNumber();
   const s = getSettings();
-  const invoiceId = genId();
-
   saveInvoice({
-    id:            invoiceId,
-    number, ref,
+    id: genId(), number, ref,
     status:        'pending',
     clientName:    q.clientName,
     clientContact: q.clientContact,
     invoiceDate:   today(),
-    dueDate:       addDays(today(), s.paymentDays || 14),
+    dueDate:       addDays(today(), s.paymentDays||14),
     eventDate:     q.eventDate,
     venue:         q.venue,
-    lineItems:     JSON.parse(JSON.stringify(q.lineItems)),
+    lineItems:     q.lineItems,
     gstRate:       q.gstRate,
     subtotal:      q.subtotal,
     gst:           q.gst,
-    discount:      q.discount || 0,
     total:         q.total,
     notes:         q.notes,
     fromQuoteRef:  q.ref,
-    fromQuoteId:   q.id,
     createdAt:     Date.now(),
     updatedAt:     Date.now(),
   });
-
-  // ── Update quote status to 'invoiced' so UI reflects conversion ──
-  q.status            = 'invoiced';
+  q.status = 'accepted';
   q.convertedToInvoice = true;
-  q.invoiceId          = invoiceId;  // store ref for View Invoice button
-  q.invoiceRef         = ref;
   saveQuote(q);
-
-  showToast(`Invoice ${ref} created from ${q.ref}`);
+  showToast(`Invoice ${ref} created`);
   renderList();
 }
 
@@ -998,7 +857,7 @@ function checkClash() {
   warn.style.display = 'block';
   list.innerHTML = clashes.map(q =>
     `<div style="margin-bottom:2px">
-      <strong>${q.ref}</strong> — ${esc(q.clientName) || '—'}
+      <strong>${q.ref}</strong> — ${q.clientName || '—'}
       <span style="color:#b91c1c">(${q.status})</span>
     </div>`
   ).join('');
@@ -1339,6 +1198,7 @@ function buildPreviewHTML(doc, settings, type) {
         <div style="font-size:13px;color:#555">Total (INR)</div>
         <div style="font-size:20px;font-weight:800">${fmtINR(total)}</div>
       </div>
+      ${settings.signature ? `<div style="margin-top:1rem;display:flex;justify-content:flex-end"><div style="text-align:right"><img src="${settings.signature}" style="height:45px;max-width:120px;object-fit:contain;display:block;margin-left:auto"><div style="font-size:11px;color:#888;margin-top:4px">Authorized Signatory</div></div></div>` : `<div style="margin-top:1rem;text-align:right"><div style="font-size:11px;color:#888">Authorized Signatory</div></div>`}
 
       ${doc.notes ? `<div style="margin-top:1rem;font-size:12px;color:#666;padding:.75rem;background:#f9f9f8;border-radius:8px">${esc(doc.notes)}</div>` : ''}
 
@@ -1360,8 +1220,7 @@ function copyAcceptLink() {
   const q = buildQuote(getQuoteById(currentId)?.status || 'sent');
   currentId = q.id;
   saveQuote(q);
-  const _q = getQuoteById(currentId);
-  const token = createAcceptToken(currentId, _q?.validUntil || null);
+  const token = createAcceptToken(currentId);
   const base = window.location.origin + window.location.pathname.replace('/pages/quotes.html', '');
   const url = base + '/accept.html?t=' + token;
   if (navigator.clipboard) {
