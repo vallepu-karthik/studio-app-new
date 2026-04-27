@@ -10,7 +10,7 @@
 'use strict';
 
 // ── ⚙️  CONFIG — replace these two values ─────────────────
-const SUPABASE_URL      = 'https://ezjfblayhsvxjjbjwyzo.supabase.co/rest/v1/';
+const SUPABASE_URL      = 'https://ezjfblayhsvxjjbjwyzo.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV6amZibGF5aHN2eGpqYmp3eXpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMjA4NDQsImV4cCI6MjA5MjY5Njg0NH0.f2X3YJycGvoomZpze6k0lmQ4a6gxCqMwiyFHEDgwqLM';
 // ──────────────────────────────────────────────────────────
 
